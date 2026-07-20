@@ -325,6 +325,18 @@ partial class CameraManager
 		}
 
 		captureSession.AddOutput(videoOutput);
+
+		// Select the best session preset allowed by MaxResolutionLines.
+		// Preview and photo capture are unaffected; the preset is restored in CleanupVideoRecordingResources.
+		foreach (var preset in CreateSessionPresets(options))
+		{
+			if (captureSession.CanSetSessionPreset(preset))
+			{
+				captureSession.SessionPreset = preset;
+				break;
+			}
+		}
+
 		captureSession.CommitConfiguration();
 
 		if (!TryConfigureAVCaptureConnection(videoOutput, out var error))
@@ -412,6 +424,12 @@ partial class CameraManager
 			{
 				captureSession.RemoveOutput(videoOutput);
 				videoOutput.Dispose();
+			}
+
+			// Restore session preset to photo quality now that video recording has ended.
+			if (captureSession.CanSetSessionPreset(AVCaptureSession.PresetPhoto))
+			{
+				captureSession.SessionPreset = AVCaptureSession.PresetPhoto;
 			}
 
 			captureSession.CommitConfiguration();
@@ -528,6 +546,35 @@ partial class CameraManager
 			UIInterfaceOrientation.LandscapeLeft => AVCaptureVideoOrientation.LandscapeLeft,
 			_ => AVCaptureVideoOrientation.Portrait
 		};
+	}
+
+	/// Builds an ordered list of session presets from highest to lowest quality,
+	/// capped by <see cref="VideoRecordingOptions.MaxResolutionLines"/>.
+	/// Mirrors the Android <c>CreateQualitySelector</c> logic.
+	static IEnumerable<NSString> CreateSessionPresets(VideoRecordingOptions options)
+	{
+		var lines = options.MaxResolutionLines;
+		if (lines <= 0)
+		{
+			lines = int.MaxValue;
+		}
+
+		if (lines >= 2160)
+		{
+			yield return AVCaptureSession.Preset3840x2160;
+		}
+		if (lines >= 1080)
+		{
+			yield return AVCaptureSession.Preset1920x1080;
+		}
+		if (lines >= 720)
+		{
+			yield return AVCaptureSession.Preset1280x720;
+		}
+		if (lines >= 480)
+		{
+			yield return AVCaptureSession.PresetMedium;
+		}
 	}
 
 	bool TryConfigureAVCaptureConnection(in AVCaptureOutput captureOutput, [NotNullWhen(false)] out string? errorMessage)

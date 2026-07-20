@@ -221,7 +221,7 @@ partial class CameraManager
 	{
 		RebuildCameraPreview();
 		RebuildImageCapture();
-		RebuildVideoCapture();
+		RebuildVideoCapture(new VideoRecordingOptions());
 	}
 
 	void RebuildCameraPreview()
@@ -261,7 +261,7 @@ partial class CameraManager
 			.Build();
 	}
 
-	void RebuildVideoCapture(int targetFrameRate = 0)
+	void RebuildVideoCapture(VideoRecordingOptions options)
 	{
 		ArgumentNullException.ThrowIfNull(cameraExecutor);
 
@@ -275,24 +275,49 @@ partial class CameraManager
 		var videoRecorderBuilder = new Recorder.Builder()
 			.SetExecutor(cameraExecutor);
 
-		if (Quality.Highest is not null)
-		{
-			videoRecorderBuilder = videoRecorderBuilder.SetQualitySelector(QualitySelector.From(Quality.Highest));
-		}
+		videoRecorderBuilder.SetQualitySelector(CreateQualitySelector(options));
 
 		videoRecorder = videoRecorderBuilder.Build();
 
 		var videoCaptureBuilder = new VideoCapture.Builder(videoRecorder);
 
-		if (targetFrameRate > 0)
+		if (options.TargetFrameRate > 0)
 		{
 			var fpsRange = new Android.Util.Range(
-				Java.Lang.Integer.ValueOf(targetFrameRate),
-				Java.Lang.Integer.ValueOf(targetFrameRate));
+				Java.Lang.Integer.ValueOf(options.TargetFrameRate),
+				Java.Lang.Integer.ValueOf(options.TargetFrameRate));
 			videoCaptureBuilder.SetTargetFrameRate(fpsRange);
 		}
 
 		videoCapture = (VideoCapture?)videoCaptureBuilder.Build();
+	}
+
+	static QualitySelector CreateQualitySelector(VideoRecordingOptions options)
+	{
+		var lines = options.MaxResolutionLines;
+		if (lines <= 0)
+		{
+			lines = int.MaxValue;
+		}
+
+		var acceptableResolutions = new List<Quality>();
+		if (lines >= 2160)
+		{
+			acceptableResolutions.Add(Quality.Uhd!);
+		}
+		if (lines >= 1080)
+		{
+			acceptableResolutions.Add(Quality.Fhd!);
+		}
+		if (lines >= 720)
+		{
+			acceptableResolutions.Add(Quality.Hd!);
+		}
+		if (lines >= 480)
+		{
+			acceptableResolutions.Add(Quality.Sd!);
+		}
+		return QualitySelector.FromOrderedList(acceptableResolutions);
 	}
 
 	async Task BindPhotoSessionAsync(CancellationToken token)
@@ -435,7 +460,7 @@ partial class CameraManager
 		// to optimize for latency during video recording sessions
 		currentSessionMode = CaptureSessionMode.Video;
 		RebuildImageCapture();
-		RebuildVideoCapture(options.TargetFrameRate);
+		RebuildVideoCapture(options);
 
 		if (camera is null || !IsVideoSessionBound())
 		{

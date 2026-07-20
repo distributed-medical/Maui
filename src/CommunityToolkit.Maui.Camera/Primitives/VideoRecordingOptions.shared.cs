@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace CommunityToolkit.Maui.Primitives;
+﻿namespace CommunityToolkit.Maui.Primitives;
 
 /// <summary>
 /// Additional video recording options
@@ -20,4 +16,10 @@ public class VideoRecordingOptions
 	/// </summary>
 	/// <remarks>Defaults to 0, which means the system will choose the optimal frame rate</remarks>
 	public int TargetFrameRate { get; set; } = 0;
+
+	/// <summary>
+	/// Restrict resolution to maximum number of video lines (height) for video recordings
+	/// </summary>
+	/// <remarks>Defaults to 0, which means the maximum supported resolution</remarks>
+	public int MaxResolutionLines { get; set; } = 0;
 }
