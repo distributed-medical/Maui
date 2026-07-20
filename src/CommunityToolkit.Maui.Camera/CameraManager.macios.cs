@@ -344,6 +344,11 @@ partial class CameraManager
 			Trace.TraceWarning(error);
 		}
 
+		if (options.VideoCodec is not null)
+		{
+			ApplyVideoCodec(videoOutput, options.VideoCodec);
+		}
+
 		if (options.TargetFrameRate > 0 && captureDevice is not null)
 		{
 			if (captureDevice.LockForConfiguration(out NSError? frameRateError))
@@ -575,6 +580,42 @@ partial class CameraManager
 		{
 			yield return AVCaptureSession.PresetMedium;
 		}
+	}
+
+	/// Maps a <see cref="VideoRecordingOptions.VideoCodec"/> string to an <see cref="AVVideoCodecType"/>
+	/// and applies it to the given <paramref name="output"/> via <c>SetOutputSettings</c>.
+	static void ApplyVideoCodec(AVCaptureMovieFileOutput output, string videoCodec)
+	{
+		var codecType = videoCodec switch
+		{
+			VideoRecordingOptions.H264VideoCodec => AVVideoCodecType.H264,
+			VideoRecordingOptions.HevcVideoCodec => AVVideoCodecType.Hevc,
+			_ => (AVVideoCodecType?)null
+		};
+
+		if (codecType is null)
+		{
+			Trace.TraceWarning($"Unknown video codec '{videoCodec}'; the system default will be used.");
+			return;
+		}
+
+		if (AVMediaTypes.Video.GetConstant() is not NSString avMediaTypeVideo)
+		{
+			return;
+		}
+
+		if (output.ConnectionFromMediaType(avMediaTypeVideo) is not AVCaptureConnection connection)
+		{
+			return;
+		}
+
+		if (codecType.Value.GetConstant() is not NSString codecConstant)
+		{
+			return;
+		}
+
+		var settings = new NSDictionary<NSString, NSObject>(AVVideo.CodecKey, codecConstant);
+		output.SetOutputSettings(settings, connection);
 	}
 
 	bool TryConfigureAVCaptureConnection(in AVCaptureOutput captureOutput, [NotNullWhen(false)] out string? errorMessage)

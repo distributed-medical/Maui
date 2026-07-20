@@ -277,6 +277,15 @@ partial class CameraManager
 
 		videoRecorderBuilder.SetQualitySelector(CreateQualitySelector(options));
 
+		if (options.VideoCodec is not null)
+		{
+			/* TODO! Support forcing use of specific codec. 
+			 * Note that the CreateQualitySelector does not allow 4K recording to avoid 
+			 * HEVC profiles when H.264 is requested, but this does not guarantee that 
+			 * the selected codec will be used.
+			 */
+		}
+
 		videoRecorder = videoRecorderBuilder.Build();
 
 		var videoCaptureBuilder = new VideoCapture.Builder(videoRecorder);
@@ -300,6 +309,13 @@ partial class CameraManager
 			lines = int.MaxValue;
 		}
 
+		// UHD (4K) profiles on modern Android devices frequently use HEVC rather than H.264.
+		// When H.264 is explicitly requested, cap at FHD to avoid those profiles.
+		if (options.VideoCodec == VideoRecordingOptions.H264VideoCodec && lines > 1080)
+		{
+			lines = 1080;
+		}
+
 		var acceptableResolutions = new List<Quality>();
 		if (lines >= 2160)
 		{
@@ -319,6 +335,18 @@ partial class CameraManager
 		}
 		return QualitySelector.FromOrderedList(acceptableResolutions);
 	}
+
+	/// Maps a <see cref="VideoRecordingOptions.VideoCodec"/> string to the corresponding
+	/// Android MIME type. Used for validation only — the .NET CameraX 1.4.x binding does not
+	/// expose a public API to mandate a specific codec on <c>Recorder.Builder</c>.
+	/// Instead, <see cref="CreateQualitySelector"/> caps quality at FHD when H.264 is requested
+	/// to avoid quality tiers that commonly use HEVC on modern devices.
+	static string? CreateVideoMimeType(string videoCodec) => videoCodec switch
+	{
+		VideoRecordingOptions.H264VideoCodec => Android.Media.MediaFormat.MimetypeVideoAvc,
+		VideoRecordingOptions.HevcVideoCodec => Android.Media.MediaFormat.MimetypeVideoHevc,
+		_ => null
+	};
 
 	async Task BindPhotoSessionAsync(CancellationToken token)
 	{
