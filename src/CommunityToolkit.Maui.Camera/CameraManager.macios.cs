@@ -353,9 +353,10 @@ partial class CameraManager
 		{
 			if (captureDevice.LockForConfiguration(out NSError? frameRateError))
 			{
-				var frameDuration = new CMTime(1, options.TargetFrameRate);
-				captureDevice.ActiveVideoMinFrameDuration = frameDuration;
-				captureDevice.ActiveVideoMaxFrameDuration = frameDuration;
+				var supportedRange = captureDevice.ActiveFormat.VideoSupportedFrameRateRanges.FirstOrDefault();
+
+				captureDevice.ActiveVideoMinFrameDuration = new CMTime(1, 25); // Minimum frame rate is 25 fps to avoid issues with some devices
+				captureDevice.ActiveVideoMaxFrameDuration = new CMTime(1, Math.Clamp(options.TargetFrameRate, 25, (int)Math.Floor(supportedRange?.MaxFrameRate ?? 120)));
 				captureDevice.UnlockForConfiguration();
 			}
 			else

@@ -293,8 +293,8 @@ partial class CameraManager
 		if (options.TargetFrameRate > 0)
 		{
 			var fpsRange = new Android.Util.Range(
-				Java.Lang.Integer.ValueOf(options.TargetFrameRate),
-				Java.Lang.Integer.ValueOf(options.TargetFrameRate));
+				Java.Lang.Integer.ValueOf(25),
+				Java.Lang.Integer.ValueOf(Math.Max(25, options.TargetFrameRate)));
 			videoCaptureBuilder.SetTargetFrameRate(fpsRange);
 		}
 
