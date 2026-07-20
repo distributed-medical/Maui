@@ -438,7 +438,10 @@ partial class CameraManager
 	{
 		ArgumentNullException.ThrowIfNull(photoOutput);
 
-		var capturePhotoSettings = AVCapturePhotoSettings.FromFormat(codecSettings);
+		var jpegWithQualityCodec = new NSDictionary<NSString, NSObject>([AVVideo.CodecKey, AVVideo.CompressionPropertiesKey],
+			[new NSString("jpeg"), new NSDictionary<NSString, NSObject>([AVVideo.QualityKey], [new NSNumber(Math.Clamp(JpegQuality, 0.01, 1.0))])]);
+
+		var capturePhotoSettings = AVCapturePhotoSettings.FromFormat(jpegWithQualityCodec);
 		capturePhotoSettings.FlashMode = photoOutput.SupportedFlashModes.Contains(flashMode) ? flashMode : photoOutput.SupportedFlashModes.First();
 
 		if (!TryConfigureAVCaptureConnection(photoOutput, out var errorMessage))

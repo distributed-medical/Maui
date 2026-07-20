@@ -26,6 +26,11 @@ sealed partial class CameraManager(
 	bool isInitialized;
 
 	/// <summary>
+	/// The Jpeg quality to use when capturing an image from the current camera. The value should be between 0 and 1, where 1 is the highest quality.
+	/// </summary>
+	public float JpegQuality { get; set; } = 0.98f;
+
+	/// <summary>
 	/// Connects to the camera.
 	/// </summary>
 	/// <returns>A <see cref="ValueTask"/> that can be awaited.</returns>

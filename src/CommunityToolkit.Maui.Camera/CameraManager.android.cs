@@ -257,6 +257,7 @@ partial class CameraManager
 		imageCapture = new ImageCapture.Builder()
 			.SetCaptureMode(imageCaptureMode)
 			.SetResolutionSelector(resolutionSelector)
+			.SetJpegQuality((int)Math.Clamp(JpegQuality * 100f, 1, 100))
 			.Build();
 	}
 
