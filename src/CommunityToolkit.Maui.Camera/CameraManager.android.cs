@@ -505,10 +505,20 @@ partial class CameraManager
 		videoRecordingFinalizeTcs = new TaskCompletionSource();
 		var captureListener = new CameraConsumer(videoRecordingFinalizeTcs);
 		var executor = ContextCompat.GetMainExecutor(context) ?? throw new CameraException($"Unable to retrieve {nameof(IExecutorService)}");
-		videoRecording = videoRecorder
-			.PrepareRecording(context, outputOptions)
-			?.WithAudioEnabled()
-			.Start(executor, captureListener) ?? throw new InvalidOperationException("Unable to prepare recording");
+
+		if (options.IncludeAudio)
+		{
+			videoRecording = videoRecorder
+				.PrepareRecording(context, outputOptions)
+				?.WithAudioEnabled()
+				.Start(executor, captureListener) ?? throw new InvalidOperationException("Unable to prepare recording");
+		}
+		else
+		{
+			videoRecording = videoRecorder
+				.PrepareRecording(context, outputOptions)
+				.Start(executor, captureListener) ?? throw new InvalidOperationException("Unable to prepare recording");
+		}
 
 		// `.PrepareRecording()` should never return null
 		// According to the Android docs, `Recorder.prepareRecording(Context, eMediaSoreOutputOptions)` returns a `NonNull` object

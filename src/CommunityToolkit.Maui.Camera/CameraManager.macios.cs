@@ -288,18 +288,21 @@ partial class CameraManager
 
 		try
 		{
-			var audioDevice = AVCaptureDevice.GetDefaultDevice(AVMediaTypes.Audio);
-			if (audioDevice is not null)
+			if (options.IncludeAudio)
 			{
-				audioInput = new AVCaptureDeviceInput(audioDevice, out NSError? audioError);
-				if (audioError is null && captureSession.CanAddInput(audioInput))
+				var audioDevice = AVCaptureDevice.GetDefaultDevice(AVMediaTypes.Audio);
+				if (audioDevice is not null)
 				{
-					captureSession.AddInput(audioInput);
-				}
-				else
-				{
-					audioInput?.Dispose();
-					audioInput = null;
+					audioInput = new AVCaptureDeviceInput(audioDevice, out NSError? audioError);
+					if (audioError is null && captureSession.CanAddInput(audioInput))
+					{
+						captureSession.AddInput(audioInput);
+					}
+					else
+					{
+						audioInput?.Dispose();
+						audioInput = null;
+					}
 				}
 			}
 		}

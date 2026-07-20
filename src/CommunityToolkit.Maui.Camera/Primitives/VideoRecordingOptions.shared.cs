@@ -36,5 +36,10 @@ public class VideoRecordingOptions
 	/// <summary>
 	/// Set to a specific video codec to use for video recordings
 	/// </summary>
-	public string? VideoCodec { get; set; }
+	public string? VideoCodec { get; set; } = null; // null means the system will choose the optimal codec
+
+	/// <summary>
+	/// Include audio in the recording
+	/// </summary>
+	public bool IncludeAudio { get; set; } = true;
 }
