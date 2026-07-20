@@ -1,4 +1,7 @@
-﻿namespace CommunityToolkit.Maui.Core;
+﻿using System.Runtime.Versioning;
+using CommunityToolkit.Maui.Primitives;
+
+namespace CommunityToolkit.Maui.Core;
 
 /// <summary>
 /// A class that manages the camera functionality.
@@ -63,6 +66,18 @@ sealed partial class CameraManager(
 	public Task StartVideoRecording(Stream stream, CancellationToken token)
 	{
 		return PlatformStartVideoRecording(stream, token);
+	}
+
+	/// <summary>
+	/// Starts the video recording.
+	/// </summary>
+	/// <param name="options">Specific options to apply to the recording</param>
+	/// <param name="token"><see cref="CancellationToken"/></param>
+	/// <returns>A <see cref="Task"/> that can be awaited.</returns>
+	/// <exception cref="CameraException"></exception>
+	public Task StartVideoRecording(VideoRecordingOptions options, CancellationToken token)
+	{
+		return PlatformStartVideoRecording(options, token);
 	}
 
 	/// <summary>
@@ -167,6 +182,16 @@ sealed partial class CameraManager(
 	/// <param name="token">A cancellation token that can be used to cancel the video recording operation.</param>
 	/// <returns>A task that represents the asynchronous video recording operation.</returns>
 	private partial Task PlatformStartVideoRecording(Stream stream, CancellationToken token);
+
+	/// <summary>
+	/// Starts video recording and writes the recorded data to a temporary file.
+	/// </summary>
+	/// <remarks>This method is platform-specific and should be overridden in a derived class to provide the actual
+	/// implementation.</remarks>
+	/// <param name="options">Specific video recording options</param>
+	/// <param name="token">A cancellation token that can be used to cancel the video recording operation.</param>
+	/// <returns>A task that represents the asynchronous video recording operation.</returns>
+	private partial Task PlatformStartVideoRecording(VideoRecordingOptions options, CancellationToken token);
 
 	/// <summary>
 	/// Stops the video recording process asynchronously.

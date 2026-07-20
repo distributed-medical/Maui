@@ -2,6 +2,7 @@
 using System.Windows.Input;
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Core.Handlers;
+using CommunityToolkit.Maui.Primitives;
 
 namespace CommunityToolkit.Maui.Views;
 
@@ -285,6 +286,10 @@ public partial class CameraView : View, ICameraView, IDisposable
 	/// <inheritdoc cref="ICameraView.StartVideoRecording(Stream,CancellationToken)"/>
 	public Task StartVideoRecording(Stream stream, CancellationToken token = default) =>
 		Handler.CameraManager.StartVideoRecording(stream, token);
+
+	/// <inheritdoc cref="ICameraView.StartVideoRecording(Stream,CancellationToken)"/>
+	public Task StartVideoRecording(VideoRecordingOptions options, CancellationToken token = default) =>
+		Handler.CameraManager.StartVideoRecording(options, token);
 
 	/// <inheritdoc cref="ICameraView.StopVideoRecording"/>
 	public async Task<TStream> StopVideoRecording<TStream>(CancellationToken token = default) where TStream : Stream

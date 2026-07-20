@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Maui.Extensions;
+using CommunityToolkit.Maui.Primitives;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Media.Capture;
 using Windows.Media.Capture.Frames;
@@ -190,6 +191,11 @@ partial class CameraManager
 		{
 			await mediaCapture.VideoDeviceController.SetMediaStreamPropertiesAsync(MediaStreamType.Photo, filteredPropertiesList.First()).AsTask(token);
 		}
+	}
+
+	private async partial Task PlatformStartVideoRecording(VideoRecordingOptions options, CancellationToken token)
+	{
+		throw new NotImplementedException();
 	}
 
 	private async partial Task PlatformStartVideoRecording(Stream stream, CancellationToken token)

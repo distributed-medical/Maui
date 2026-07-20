@@ -11,6 +11,7 @@ using AndroidX.Core.Content;
 using AndroidX.Core.Util;
 using AndroidX.Lifecycle;
 using CommunityToolkit.Maui.Extensions;
+using CommunityToolkit.Maui.Primitives;
 using Java.Lang;
 using Java.Util.Concurrent;
 using Image = Android.Media.Image;
@@ -39,6 +40,7 @@ partial class CameraManager
 	ResolutionFilter? resolutionFilter;
 	OrientationListener? orientationListener;
 	Java.IO.File? videoRecordingFile;
+	bool deleteVideoRecordingFileOnCompletion;
 	TaskCompletionSource? videoRecordingFinalizeTcs;
 	Stream? videoRecordingStream;
 	int extensionMode = ExtensionMode.Auto;
@@ -396,6 +398,12 @@ partial class CameraManager
 
 	private async partial Task PlatformStartVideoRecording(Stream stream, CancellationToken token)
 	{
+		videoRecordingStream = stream;
+		await PlatformStartVideoRecording(new VideoRecordingOptions(), token);
+	}
+
+	private async partial Task PlatformStartVideoRecording(VideoRecordingOptions options, CancellationToken token)
+	{
 		if (previewView is null
 			|| processCameraProvider is null
 			|| cameraPreview is null
@@ -405,8 +413,6 @@ partial class CameraManager
 		{
 			return;
 		}
-
-		videoRecordingStream = stream;
 
 		cameraView.SelectedCamera ??= cameraProvider.AvailableCameras?.FirstOrDefault() ?? throw new CameraException("No camera available on device");
 
@@ -420,7 +426,9 @@ partial class CameraManager
 			await BindVideoSessionAsync(token);
 		}
 
-		videoRecordingFile = new Java.IO.File(context.CacheDir, $"{DateTime.UtcNow.Ticks}.mp4");
+		string temporaryFilename = options.TemporaryFilename ?? Path.Combine(context.CacheDir?.AbsolutePath ?? "", $"{DateTime.UtcNow.Ticks}.mp4");
+		deleteVideoRecordingFileOnCompletion = options.TemporaryFilename is null;
+		videoRecordingFile = new Java.IO.File(temporaryFilename);
 		videoRecordingFile.CreateNewFile();
 
 		var outputOptions = new FileOutputOptions.Builder(videoRecordingFile).Build();
@@ -444,8 +452,7 @@ partial class CameraManager
 		ArgumentNullException.ThrowIfNull(cameraExecutor);
 		if (videoRecording is null
 			|| videoRecordingFile is null
-			|| videoRecordingFinalizeTcs is null
-			|| videoRecordingStream is null)
+			|| videoRecordingFinalizeTcs is null)
 		{
 			return Stream.Null;
 		}
@@ -453,9 +460,17 @@ partial class CameraManager
 		videoRecording.Stop();
 		await videoRecordingFinalizeTcs.Task.WaitAsync(token);
 
-		await using var inputStream = new FileStream(videoRecordingFile.AbsolutePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-		await inputStream.CopyToAsync(videoRecordingStream, token);
-		await videoRecordingStream.FlushAsync(token);
+		if (videoRecordingStream is not null)
+		{
+			await using var inputStream = new FileStream(videoRecordingFile.AbsolutePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+			await inputStream.CopyToAsync(videoRecordingStream, token);
+			await videoRecordingStream.FlushAsync(token);
+			if (videoRecordingStream.CanSeek)
+			{
+				videoRecordingStream.Position = 0;
+			}
+		}
+
 		CleanupVideoRecordingResources();
 
 		// Rebuild the ImageCapture use case with the CaptureModeMaximizeQuality capture mode
@@ -464,12 +479,7 @@ partial class CameraManager
 		RebuildImageCapture();
 		await BindPhotoSessionAsync(token);
 
-		if (videoRecordingStream.CanSeek)
-		{
-			videoRecordingStream.Position = 0;
-		}
-
-		return videoRecordingStream;
+		return videoRecordingStream ?? Stream.Null;
 	}
 
 	void CleanupVideoRecordingResources()
@@ -479,7 +489,7 @@ partial class CameraManager
 
 		if (videoRecordingFile is not null)
 		{
-			if (videoRecordingFile.Exists())
+			if (deleteVideoRecordingFileOnCompletion && videoRecordingFile.Exists())
 			{
 				videoRecordingFile.Delete();
 			}

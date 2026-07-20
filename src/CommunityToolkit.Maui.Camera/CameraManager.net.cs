@@ -1,3 +1,5 @@
+using CommunityToolkit.Maui.Primitives;
+
 namespace CommunityToolkit.Maui.Core;
 
 sealed partial class CameraManager
@@ -16,6 +18,7 @@ sealed partial class CameraManager
 
 	public partial ValueTask UpdateCaptureResolution(Size resolution, CancellationToken token) => throw new NotSupportedException(notSupportedMessage);
 
+	private partial Task PlatformStartVideoRecording(VideoRecordingOptions options, CancellationToken token) => throw new NotSupportedException(notSupportedMessage);
 	private partial Task PlatformStartVideoRecording(Stream stream, CancellationToken token) => throw new NotSupportedException(notSupportedMessage);
 	private partial Task<Stream> PlatformStopVideoRecording(CancellationToken token) => throw new NotSupportedException(notSupportedMessage);
 	private partial Task PlatformStartCameraPreview(CancellationToken token) => throw new NotSupportedException(notSupportedMessage);

@@ -1,4 +1,7 @@
-﻿namespace CommunityToolkit.Maui.Core;
+﻿using System.Runtime.Versioning;
+using CommunityToolkit.Maui.Primitives;
+
+namespace CommunityToolkit.Maui.Core;
 
 /// <summary>
 /// Represents a visual element that provides the ability to show a camera preview and capture images.
@@ -91,6 +94,19 @@ public interface ICameraView : IView
 	/// <param name="token">A cancellation token that can be used to cancel the video recording operation.</param>
 	/// <returns>A task that represents the asynchronous video recording operation.</returns>
 	Task StartVideoRecording(Stream stream, CancellationToken token = default);
+
+	/// <summary>
+	/// Starts recording video and writes the output to a temporary file
+	/// </summary>
+	/// <remarks>The recording will stop if the cancellation token is triggered.</remarks>
+	/// <param name="options">Specific options for the video recording</param>
+	/// <param name="token">A cancellation token that can be used to cancel the video recording operation.</param>
+	/// <returns>A task that represents the asynchronous video recording operation.</returns>
+	/// <remarks>
+	/// Since the original implementation in fact doesn't write to the stream, but to a temp file which is later copyied into the stream,
+	/// we have chosen to remove the Stream parameter in favor of specifying a filename in the <see cref="VideoRecordingOptions"/>. This allows us to write immediately to our final destination.
+	/// </remarks>
+	Task StartVideoRecording(VideoRecordingOptions options, CancellationToken token = default);
 
 	/// <summary>
 	/// Stops the ongoing video recording operation.

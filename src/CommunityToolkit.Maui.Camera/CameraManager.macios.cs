@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using AVFoundation;
 using CommunityToolkit.Maui.Extensions;
+using CommunityToolkit.Maui.Primitives;
 using CoreMedia;
 using CoreMotion;
 using Foundation;
@@ -30,6 +31,7 @@ partial class CameraManager
 	AVCaptureMovieFileOutput? videoOutput;
 	AVCaptureDeviceRotationCoordinator? rotationCoordinator;
 	string? videoRecordingFileName;
+	bool deleteVideoRecordingFileOnCompletion;
 	TaskCompletionSource? videoRecordingFinalizeTcs;
 	Stream? videoRecordingStream;
 	CMMotionManager? motionManager;
@@ -263,6 +265,12 @@ partial class CameraManager
 
 	private async partial Task PlatformStartVideoRecording(Stream stream, CancellationToken token)
 	{
+		videoRecordingStream = stream;
+		await PlatformStartVideoRecording(new VideoRecordingOptions(), token);
+	}
+
+	private async partial Task PlatformStartVideoRecording(VideoRecordingOptions options, CancellationToken token)
+	{
 		var isPermissionGranted = await AVCaptureDevice.RequestAccessForMediaTypeAsync(AVAuthorizationMediaType.Video).WaitAsync(token);
 		if (!isPermissionGranted)
 		{
@@ -324,9 +332,10 @@ partial class CameraManager
 			Trace.TraceWarning(error);
 		}
 
-		videoRecordingStream = stream;
 		videoRecordingFinalizeTcs = new TaskCompletionSource();
-		videoRecordingFileName = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.mov");
+
+		videoRecordingFileName = options.TemporaryFilename ?? Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.mov");
+		deleteVideoRecordingFileOnCompletion = options.TemporaryFilename is null;
 
 		var outputUrl = NSUrl.FromFilename(videoRecordingFileName);
 		videoOutput.StartRecordingToOutputFile(outputUrl, new AVCaptureMovieFileOutputRecordingDelegate(videoRecordingFinalizeTcs));
@@ -337,7 +346,6 @@ partial class CameraManager
 		if (captureSession is null
 			|| videoRecordingFileName is null
 			|| videoOutput is null
-			|| videoRecordingStream is null
 			|| videoRecordingFinalizeTcs is null)
 		{
 			return Stream.Null;
@@ -346,7 +354,7 @@ partial class CameraManager
 		videoOutput.StopRecording();
 		await videoRecordingFinalizeTcs.Task.WaitAsync(token);
 
-		if (File.Exists(videoRecordingFileName))
+		if (videoRecordingStream is not null && File.Exists(videoRecordingFileName))
 		{
 			await using var inputStream = new FileStream(videoRecordingFileName, FileMode.Open, FileAccess.Read, FileShare.Read);
 			await inputStream.CopyToAsync(videoRecordingStream, token);
@@ -359,7 +367,7 @@ partial class CameraManager
 
 		CleanupVideoRecordingResources();
 
-		return videoRecordingStream;
+		return videoRecordingStream ?? Stream.Null;
 	}
 
 	void CleanupVideoRecordingResources()
@@ -389,7 +397,7 @@ partial class CameraManager
 		// Clean up temporary file
 		if (videoRecordingFileName is not null)
 		{
-			if (File.Exists(videoRecordingFileName))
+			if (deleteVideoRecordingFileOnCompletion && File.Exists(videoRecordingFileName))
 			{
 				File.Delete(videoRecordingFileName);
 			}
