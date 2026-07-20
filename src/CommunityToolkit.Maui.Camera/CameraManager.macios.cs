@@ -332,6 +332,21 @@ partial class CameraManager
 			Trace.TraceWarning(error);
 		}
 
+		if (options.TargetFrameRate > 0 && captureDevice is not null)
+		{
+			if (captureDevice.LockForConfiguration(out NSError? frameRateError))
+			{
+				var frameDuration = new CMTime(1, options.TargetFrameRate);
+				captureDevice.ActiveVideoMinFrameDuration = frameDuration;
+				captureDevice.ActiveVideoMaxFrameDuration = frameDuration;
+				captureDevice.UnlockForConfiguration();
+			}
+			else
+			{
+				Trace.TraceWarning($"Unable to set video frame rate: {frameRateError.LocalizedDescription}");
+			}
+		}
+
 		videoRecordingFinalizeTcs = new TaskCompletionSource();
 
 		videoRecordingFileName = options.TemporaryFilename ?? Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.mov");
@@ -366,6 +381,17 @@ partial class CameraManager
 		}
 
 		CleanupVideoRecordingResources();
+
+		if (captureDevice is not null)
+		{
+			// Reset frame rate to default by setting min and max frame duration to invalid
+			if (captureDevice.LockForConfiguration(out NSError? frameRateError))
+			{
+				captureDevice.ActiveVideoMinFrameDuration = CMTime.Invalid;
+				captureDevice.ActiveVideoMaxFrameDuration = CMTime.Invalid;
+				captureDevice.UnlockForConfiguration();
+			}
+		}
 
 		return videoRecordingStream ?? Stream.Null;
 	}

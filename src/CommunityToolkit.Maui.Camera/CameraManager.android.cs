@@ -260,7 +260,7 @@ partial class CameraManager
 			.Build();
 	}
 
-	void RebuildVideoCapture()
+	void RebuildVideoCapture(int targetFrameRate = 0)
 	{
 		ArgumentNullException.ThrowIfNull(cameraExecutor);
 
@@ -278,8 +278,20 @@ partial class CameraManager
 		{
 			videoRecorderBuilder = videoRecorderBuilder.SetQualitySelector(QualitySelector.From(Quality.Highest));
 		}
+
 		videoRecorder = videoRecorderBuilder.Build();
-		videoCapture = VideoCapture.WithOutput(videoRecorder);
+
+		var videoCaptureBuilder = new VideoCapture.Builder(videoRecorder);
+
+		if (targetFrameRate > 0)
+		{
+			var fpsRange = new Android.Util.Range(
+				Java.Lang.Integer.ValueOf(targetFrameRate),
+				Java.Lang.Integer.ValueOf(targetFrameRate));
+			videoCaptureBuilder.SetTargetFrameRate(fpsRange);
+		}
+
+		videoCapture = (VideoCapture?)videoCaptureBuilder.Build();
 	}
 
 	async Task BindPhotoSessionAsync(CancellationToken token)
@@ -404,6 +416,8 @@ partial class CameraManager
 
 	private async partial Task PlatformStartVideoRecording(VideoRecordingOptions options, CancellationToken token)
 	{
+		ArgumentNullException.ThrowIfNull(options, nameof(options));
+
 		if (previewView is null
 			|| processCameraProvider is null
 			|| cameraPreview is null
@@ -420,6 +434,7 @@ partial class CameraManager
 		// to optimize for latency during video recording sessions
 		currentSessionMode = CaptureSessionMode.Video;
 		RebuildImageCapture();
+		RebuildVideoCapture(options.TargetFrameRate);
 
 		if (camera is null || !IsVideoSessionBound())
 		{
