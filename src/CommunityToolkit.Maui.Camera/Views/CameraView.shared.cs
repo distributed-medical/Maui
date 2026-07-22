@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows.Input;
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Core.Handlers;
@@ -272,8 +273,11 @@ public partial class CameraView : View, ICameraView, IDisposable
 	}
 
 	/// <inheritdoc cref="ICameraView.StartCameraPreview"/>
-	public Task StartCameraPreview(CancellationToken token) =>
-		Handler.CameraManager.StartCameraPreview(token);
+	public async Task StartCameraPreview(CancellationToken token)
+	{
+		await Handler.CameraManager.StartCameraPreview(token);
+		var psz = Handler.CameraManager.GetPreviewSize();
+	}
 
 	/// <inheritdoc cref="ICameraView.StopCameraPreview"/>
 	public void StopCameraPreview() =>
@@ -301,6 +305,36 @@ public partial class CameraView : View, ICameraView, IDisposable
 	/// <inheritdoc cref="ICameraView.StopVideoRecording"/>
 	public Task<Stream> StopVideoRecording(CancellationToken token = default) =>
 		Handler.CameraManager.StopVideoRecording(token);
+
+	/// <inheritdoc/>
+	protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
+	{
+		// Request a size with the same proportions as the preview
+		var psz = Handler.CameraManager.GetPreviewSize();
+
+		if (psz is not null)
+		{
+			return ScaleWithin(psz.Value, new Size(widthConstraint, heightConstraint));
+		}
+		else
+		{
+			return base.MeasureOverride(widthConstraint, heightConstraint);
+		}
+	}
+
+	static Size ScaleWithin(Size size, Size maxSize)
+	{
+		var widthRatio = maxSize.Width / size.Width;
+		var heightRatio = maxSize.Height / size.Height;
+		var minRatio = Math.Min(widthRatio, heightRatio);
+		if (minRatio < 1)
+		{
+			var sz = new Size(Math.Min(size.Width * minRatio, maxSize.Width), 
+						      Math.Min(size.Height * minRatio, maxSize.Height));
+			return sz;
+		}
+		return size;
+	}
 
 	/// <inheritdoc/>
 	protected virtual void Dispose(bool disposing)

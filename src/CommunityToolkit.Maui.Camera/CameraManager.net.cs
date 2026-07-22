@@ -10,6 +10,8 @@ sealed partial class CameraManager
 
 	public NativePlatformCameraPreviewView CreatePlatformView() => throw new NotSupportedException(notSupportedMessage);
 
+	public partial Size? GetPreviewSize() => throw new NotSupportedException(notSupportedMessage);
+
 	public partial void UpdateFlashMode(CameraFlashMode flashMode) => throw new NotSupportedException(notSupportedMessage);
 
 	public partial void UpdateIsTorchOn(bool isTorchOn) => throw new NotSupportedException(notSupportedMessage);

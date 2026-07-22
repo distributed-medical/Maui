@@ -194,6 +194,24 @@ partial class CameraManager
 		}
 	}
 
+	public partial Size? GetPreviewSize()
+	{
+		if (cameraPreview?.ResolutionInfo?.Resolution is Android.Util.Size sz)
+		{
+			if (cameraPreview.TargetRotation == 90 || cameraPreview.TargetRotation == 270)
+			{
+				return new Size(sz.Width, sz.Height);
+			}
+			else
+			{
+				// Sensor orientation is 90 degrees on most devices, so the width and height are swapped for portrait orientation
+				return new Size(sz.Height, sz.Width);
+			}
+		}
+		return null;
+	}
+
+
 	private async partial Task PlatformConnectCamera(CancellationToken token)
 	{
 		var cameraProviderFuture = ProcessCameraProvider.GetInstance(context);

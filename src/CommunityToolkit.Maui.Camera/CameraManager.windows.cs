@@ -96,6 +96,8 @@ partial class CameraManager
 		await PlatformUpdateResolution(resolution, token);
 	}
 
+	public partial Size? GetPreviewSize() => throw new NotSupportedException();
+
 	private partial void PlatformDisconnect()
 	{
 	}

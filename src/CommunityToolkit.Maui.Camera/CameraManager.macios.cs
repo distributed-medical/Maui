@@ -182,6 +182,27 @@ partial class CameraManager
 		return ValueTask.CompletedTask;
 	}
 
+	public partial Size? GetPreviewSize()
+	{
+		if (captureDevice is null)
+		{
+			return null;
+		}
+
+		var sz = ((CMVideoFormatDescription)captureDevice.ActiveFormat.FormatDescription).Dimensions;
+
+		switch (videoOrientation)
+		{
+			case AVCaptureVideoOrientation.LandscapeLeft:
+			case AVCaptureVideoOrientation.LandscapeRight:
+				return new Size(sz.Width, sz.Height);
+
+			default:
+				return new Size(sz.Height, sz.Width);
+
+		}
+	}
+
 	private async partial Task PlatformConnectCamera(CancellationToken token)
 	{
 		await PlatformStartCameraPreview(token);

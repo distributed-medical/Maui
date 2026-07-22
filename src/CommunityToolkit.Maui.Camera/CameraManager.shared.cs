@@ -148,6 +148,12 @@ sealed partial class CameraManager(
 	public partial ValueTask UpdateCaptureResolution(Size resolution, CancellationToken token);
 
 	/// <summary>
+	/// Returns the size of the preview stream, with rotation taken into account
+	/// </summary>
+	/// <returns></returns>
+	public partial Size? GetPreviewSize();
+
+	/// <summary>
 	/// Performs the capturing of a picture at the platform-specific level.
 	/// </summary>
 	/// <param name="token">A <see cref="CancellationToken"/> that can be used to cancel the work.</param>
