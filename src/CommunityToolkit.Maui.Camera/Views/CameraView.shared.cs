@@ -273,11 +273,8 @@ public partial class CameraView : View, ICameraView, IDisposable
 	}
 
 	/// <inheritdoc cref="ICameraView.StartCameraPreview"/>
-	public async Task StartCameraPreview(CancellationToken token)
-	{
-		await Handler.CameraManager.StartCameraPreview(token);
-		var psz = Handler.CameraManager.GetPreviewSize();
-	}
+	public Task StartCameraPreview(CancellationToken token) =>
+		Handler.CameraManager.StartCameraPreview(token);
 
 	/// <inheritdoc cref="ICameraView.StopCameraPreview"/>
 	public void StopCameraPreview() =>
@@ -314,7 +311,9 @@ public partial class CameraView : View, ICameraView, IDisposable
 
 		if (psz is not null)
 		{
-			return ScaleWithin(psz.Value, new Size(widthConstraint, heightConstraint));
+			var requiredSize = ScaleWithin(psz.Value, new Size(widthConstraint, heightConstraint)); 
+			base.MeasureOverride(requiredSize.Width, requiredSize.Height);
+			return requiredSize;
 		}
 		else
 		{
