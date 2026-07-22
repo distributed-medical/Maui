@@ -11,25 +11,34 @@ partial class CameraProvider
 
 	static AVCaptureDeviceType[] InitializeCaptureDevices()
 	{
-		AVCaptureDeviceType[] deviceTypes =
-		[
-			AVCaptureDeviceType.BuiltInWideAngleCamera,
-			AVCaptureDeviceType.BuiltInTelephotoCamera,
-			AVCaptureDeviceType.BuiltInDualCamera
-		];
+		AVCaptureDeviceType[] deviceTypes = [];
 
-		if (UIDevice.CurrentDevice.CheckSystemVersion(11, 1))
+		// We add devices in order of preference, so that the first device is the best one available.
+		if (UIDevice.CurrentDevice.CheckSystemVersion(13, 0))
 		{
 			deviceTypes = [.. deviceTypes,
-				AVCaptureDeviceType.BuiltInTrueDepthCamera];
+				AVCaptureDeviceType.BuiltInTripleCamera,
+				AVCaptureDeviceType.BuiltInDualWideCamera,
+				];
 		}
+
+		deviceTypes = [.. deviceTypes,
+			AVCaptureDeviceType.BuiltInDualCamera,
+			AVCaptureDeviceType.BuiltInWideAngleCamera,
+			AVCaptureDeviceType.BuiltInTelephotoCamera,
+		];
 
 		if (UIDevice.CurrentDevice.CheckSystemVersion(13, 0))
 		{
 			deviceTypes = [.. deviceTypes,
 				AVCaptureDeviceType.BuiltInUltraWideCamera,
-				AVCaptureDeviceType.BuiltInTripleCamera,
-				AVCaptureDeviceType.BuiltInDualWideCamera];
+				];
+		}
+
+		if (UIDevice.CurrentDevice.CheckSystemVersion(11, 1))
+		{
+			deviceTypes = [.. deviceTypes,
+				AVCaptureDeviceType.BuiltInTrueDepthCamera];
 		}
 
 		if (UIDevice.CurrentDevice.CheckSystemVersion(15, 4))
@@ -77,16 +86,24 @@ partial class CameraProvider
 				supportedResolutions.Add(new(dimension.Width, dimension.Height));
 			}
 
+			float zoomMultiplier = 1.0f;
+			if (OperatingSystem.IsIOSVersionAtLeast(18))
+			{
+				zoomMultiplier = (float)device.DisplayVideoZoomFactorMultiplier;
+			}
+
 			var cameraInfo = new CameraInfo(device.LocalizedName,
 				device.UniqueID,
 				position,
 				device.HasFlash,
 				(float)device.MinAvailableVideoZoomFactor,
 				(float)device.MaxAvailableVideoZoomFactor,
+				zoomMultiplier,
 				supportedResolutions,
+				device.VirtualDevice,
 				device,
 				supportedFormats
-			);
+	);
 
 			availableCameras.Add(cameraInfo);
 		}

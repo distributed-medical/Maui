@@ -81,7 +81,9 @@ partial class CameraProvider
 					cameraXInfo.HasFlashUnit,
 					(cameraXInfo.ZoomState?.Value as IZoomState)?.MinZoomRatio ?? 1.0f,
 					(cameraXInfo.ZoomState?.Value as IZoomState)?.MaxZoomRatio ?? 1.0f,
+					1.0f,
 					supportedResolutions,
+					false,
 					cameraXInfo.CameraSelector ?? throw new InvalidOperationException($"Unable to retrieve {nameof(ICameraInfo.CameraSelector)}"));
 
 				availableCameras.Add(cameraInfo);

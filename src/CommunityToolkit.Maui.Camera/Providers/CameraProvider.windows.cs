@@ -58,7 +58,9 @@ partial class CameraProvider
 				mediaCapture.VideoDeviceController.FlashControl.Supported,
 				mediaCapture.VideoDeviceController.ZoomControl.Supported ? mediaCapture.VideoDeviceController.ZoomControl.Min : 1f,
 				mediaCapture.VideoDeviceController.ZoomControl.Supported ? mediaCapture.VideoDeviceController.ZoomControl.Max : 1f,
+				1.0f,
 				supportedResolutionsList,
+				false,
 				sourceGroup,
 				imageEncodingPropertiesList);
 

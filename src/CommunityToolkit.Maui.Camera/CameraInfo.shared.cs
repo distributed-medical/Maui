@@ -22,7 +22,9 @@ public class CameraInfo(
 	bool isFlashSupported,
 	float minimumZoomFactor,
 	float maximumZoomFactor,
-	IEnumerable<Size> supportedResolutions
+	float displayZoomFactorMultiplier,
+	IEnumerable<Size> supportedResolutions,
+	bool isVirtual
 #if ANDROID
 	,
 	CameraSelector cameraSelector
@@ -66,6 +68,16 @@ public class CameraInfo(
 	/// Gets the maximum zoom factor supported by the camera device.
 	/// </summary>
 	public float MaximumZoomFactor { get; } = maximumZoomFactor;
+
+	/// <summary>
+	/// The display zoom factor multiplier
+	/// </summary>
+	public float DisplayZoomFactorMultiplier { get; } = displayZoomFactorMultiplier; 
+
+	/// <summary>
+	/// Returns true if the camera device is virtual (e.g., a fused camera or a software-based camera), otherwise false.
+	/// </summary>
+	public bool IsVirtual { get; } = isVirtual;
 
 	/// <summary>
 	/// Gets the supported resolutions of the camera device.
