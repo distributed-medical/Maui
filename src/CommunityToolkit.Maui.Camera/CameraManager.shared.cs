@@ -98,6 +98,12 @@ sealed partial class CameraManager(
 	public void StopCameraPreview() => PlatformStopCameraPreview();
 
 	/// <summary>
+	/// Sets the region of interest for auto-focus and exposure. If null, the default region will be used.
+	/// </summary>
+	/// <param name="regionOfInterest"></param>
+	public void SetRegionOfInterest(Rect? regionOfInterest) => PlatformSetRegionOfInterest(regionOfInterest);
+
+	/// <summary>
 	/// Updates the current camera.
 	/// </summary>
 	/// <param name="cameraInfo">The new <see cref="CameraInfo"/> to set as current.</param>
@@ -212,4 +218,10 @@ sealed partial class CameraManager(
 	/// <param name="token">A cancellation token that can be used to cancel the stop operation.</param>
 	/// <returns>A task that represents the asynchronous stop operation.</returns>
 	private partial Task<Stream> PlatformStopVideoRecording(CancellationToken token);
+
+	/// <summary>
+	/// Specify the region of interest for auto-focus. If null, the default region will be used.
+	/// </summary>
+	/// <param name="regionOfInterest"></param>
+	private partial void PlatformSetRegionOfInterest(Rect? regionOfInterest);
 }

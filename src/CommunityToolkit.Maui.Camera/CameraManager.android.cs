@@ -471,6 +471,36 @@ partial class CameraManager
 	{
 	}
 
+	private partial void PlatformSetRegionOfInterest(Rect? regionOfInterest)
+	{
+		if (camera is null || previewView is null)
+		{
+			return;
+		}
+
+		if (regionOfInterest is null || regionOfInterest == Rect.Zero)
+		{
+			camera.CameraControl?.CancelFocusAndMetering();
+			return;
+		}
+
+		var density = context.Resources?.DisplayMetrics?.Density ?? 1f;
+		var centerX = (float)(regionOfInterest.Value.Center.X * density);
+		var centerY = (float)(regionOfInterest.Value.Center.Y * density);
+
+		// Compute a metering area size proportional to the focus rect width relative to the preview view
+		var meteringSize = previewView.Width > 0
+			? Math.Clamp((float)(regionOfInterest.Value.Width * density / previewView.Width), 0.01f, 1f)
+			: 0.1f;
+
+		var factory = previewView.MeteringPointFactory;
+		var point = factory.CreatePoint(centerX, centerY, meteringSize);
+		var action = new FocusMeteringAction.Builder(point)
+			.SetAutoCancelDuration(5, TimeUnit.Seconds!)
+			.Build();
+		camera.CameraControl?.StartFocusAndMetering(action);
+	}
+
 	private partial ValueTask PlatformTakePicture(CancellationToken token)
 	{
 		ArgumentNullException.ThrowIfNull(cameraExecutor);

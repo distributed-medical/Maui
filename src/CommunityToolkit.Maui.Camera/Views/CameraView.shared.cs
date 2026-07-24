@@ -239,6 +239,15 @@ public partial class CameraView : View, ICameraView, IDisposable
 	}
 #endif
 
+	/// <summary>
+	/// Set specific region of interest to use for auto-focus and exposure.
+	/// </summary>
+	/// <param name="regionOfInterest">Set to null or Rect.Zero to revert to continuous auto-focus</param>
+	public void SetRegionOfInterest(Rect? regionOfInterest)
+	{
+		Handler.CameraManager.SetRegionOfInterest(regionOfInterest);
+	}
+
 	/// <inheritdoc cref="ICameraView.CaptureImage"/>
 	public async Task<Stream> CaptureImage(CancellationToken token)
 	{

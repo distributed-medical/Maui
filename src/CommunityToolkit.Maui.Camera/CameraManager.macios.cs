@@ -284,6 +284,98 @@ partial class CameraManager
 	{
 	}
 
+	private partial void PlatformSetRegionOfInterest(Rect? regionOfInterest)
+	{
+		if (captureDevice is null)
+		{
+			return;
+		}
+
+		captureDevice.LockForConfiguration(out NSError? error);
+		if (error is not null)
+		{
+			Trace.WriteLine(error);
+			return;
+		}
+
+		if (regionOfInterest == Rect.Zero)
+		{
+			regionOfInterest = null;
+		}
+
+		var pt = regionOfInterest is null
+			? new CoreGraphics.CGPoint(0.5, 0.5)
+			: CalculateFocusPoint(regionOfInterest.Value);
+
+		var focusMode = regionOfInterest == null 
+			? AVCaptureFocusMode.ContinuousAutoFocus 
+			: AVCaptureFocusMode.AutoFocus;
+
+		var exposureMode = regionOfInterest == null
+			? AVCaptureExposureMode.ContinuousAutoExposure
+			: AVCaptureExposureMode.AutoExpose;
+
+		Debug.WriteLine($"Poi: {pt}, {focusMode}, {exposureMode}");
+
+		if (captureDevice.FocusPointOfInterestSupported)
+		{
+			captureDevice.FocusPointOfInterest = pt;
+		}
+
+		if (captureDevice.IsFocusModeSupported(focusMode))
+		{
+			captureDevice.FocusMode = focusMode;
+		}
+
+		if (captureDevice.ExposurePointOfInterestSupported)
+		{
+			captureDevice.ExposurePointOfInterest = pt;
+		}
+
+		if (captureDevice.IsExposureModeSupported(exposureMode))
+		{
+			captureDevice.ExposureMode = exposureMode;
+		}
+
+		captureDevice.UnlockForConfiguration();
+	}
+
+	CoreGraphics.CGPoint CalculateFocusPoint(Rect rect)
+	{
+		// AVFoundation's FocusPointOfInterest uses a coordinate system where {0,0} is the top-left
+		// and {1,1} is the bottom-right, always relative to landscape orientation with the home button
+		// on the right, regardless of actual device orientation.
+		// When the device is in portrait, sensor landscape-X maps to portrait-Y (top-to-bottom),
+		// and sensor landscape-Y maps to portrait-X (right-to-left, hence the 1-n inversion).
+		// We assume a sensor aspect ratio of 4:3.
+		const float SensorAspectRatio = 4f / 3f;
+
+		var viewWidth = previewView?.Bounds.Width ?? cameraView.Width;
+		var viewHeight = previewView?.Bounds.Height ?? cameraView.Height;
+		var ar = viewWidth / viewHeight;
+
+		double fullWidth, fullHeight;
+		if (ar > SensorAspectRatio)
+		{
+			fullHeight = viewHeight / SensorAspectRatio;
+			fullWidth = viewWidth;
+		}
+		else
+		{
+			fullHeight = viewHeight;
+			fullWidth = viewWidth * SensorAspectRatio;
+		}
+
+		var tx = (fullHeight - viewHeight) * 0.5;
+		var ty = (fullWidth - viewWidth) * 0.5;
+
+		var nx = (float)Math.Clamp((rect.Center.Y + tx) / fullHeight, 0.0, 1.0);
+		var ny = (float)Math.Clamp(1.0 - (rect.Center.X + ty) / fullWidth, 0.0, 1.0);
+
+		return new CoreGraphics.CGPoint(nx, ny);
+	}
+
+
 	private async partial Task PlatformStartVideoRecording(Stream stream, CancellationToken token)
 	{
 		videoRecordingStream = stream;

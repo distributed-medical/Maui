@@ -31,5 +31,7 @@ sealed partial class CameraManager
 
 	private partial void PlatformDisconnect() => throw new NotSupportedException(notSupportedMessage);
 
+	private partial void PlatformSetRegionOfInterest(Rect? regionOfInterest) => throw new NotSupportedException(notSupportedMessage);
+
 	private partial ValueTask PlatformTakePicture(CancellationToken token) => throw new NotSupportedException(notSupportedMessage);
 }
