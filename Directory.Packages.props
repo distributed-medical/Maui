@@ -1,0 +1,9 @@
+<Project>
+  <!-- Disable Central Package Management for this submodule, which manages its own package versions -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    
+    <!-- Keep in sync with the main project's Microsoft.Maui.Controls version in Directory.Packages.props -->
+    <MauiPackageVersion>10.0.90</MauiPackageVersion>
+  </PropertyGroup>
+</Project>
