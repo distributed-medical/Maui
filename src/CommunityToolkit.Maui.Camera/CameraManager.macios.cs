@@ -467,7 +467,7 @@ partial class CameraManager
 		// Re-apply the current zoom level so it is preserved when recording starts.
 		UpdateZoom(cameraView.ZoomFactor);
 
-		if (!TryConfigureAVCaptureConnection(videoOutput, out var error))
+		if (!TryConfigureAVCaptureConnection(videoOutput, options, out var error))
 		{
 			Trace.TraceWarning(error);
 		}
@@ -501,6 +501,8 @@ partial class CameraManager
 		var outputUrl = NSUrl.FromFilename(videoRecordingFileName);
 		videoFinalizationDelegate = new AVCaptureMovieFileOutputRecordingDelegate(videoRecordingFinalizeTcs);
 		videoOutput.StartRecordingToOutputFile(outputUrl, videoFinalizationDelegate);
+
+		cameraView.InvalidateMeasure();
 	}
 
 	private async partial Task<Stream> PlatformStopVideoRecording(CancellationToken token)
@@ -591,6 +593,8 @@ partial class CameraManager
 		}
 
 		videoRecordingFinalizeTcs = null;
+
+		cameraView.InvalidateMeasure();
 	}
 
 	private async partial ValueTask PlatformTakePicture(CancellationToken token)
@@ -603,7 +607,7 @@ partial class CameraManager
 		var capturePhotoSettings = AVCapturePhotoSettings.FromFormat(jpegWithQualityCodec);
 		capturePhotoSettings.FlashMode = photoOutput.SupportedFlashModes.Contains(flashMode) ? flashMode : photoOutput.SupportedFlashModes.First();
 
-		if (!TryConfigureAVCaptureConnection(photoOutput, out var errorMessage))
+		if (!TryConfigureAVCaptureConnection(photoOutput, null, out var errorMessage))
 		{
 			Trace.TraceWarning(errorMessage);
 		}
@@ -754,7 +758,7 @@ partial class CameraManager
 		output.SetOutputSettings(settings, connection);
 	}
 
-	bool TryConfigureAVCaptureConnection(in AVCaptureOutput captureOutput, [NotNullWhen(false)] out string? errorMessage)
+	bool TryConfigureAVCaptureConnection(in AVCaptureOutput captureOutput, in VideoRecordingOptions? options, [NotNullWhen(false)] out string? errorMessage)
 	{
 		errorMessage = null;
 
@@ -773,7 +777,11 @@ partial class CameraManager
 		// use AVCaptureDeviceRotationCoordinator to set captured photo and video orientation on iOS 17+
 		if (UIDevice.CurrentDevice.CheckSystemVersion(17, 0))
 		{
-			if (rotationCoordinator is not null)
+			if (options?.OverrideRotationAngle != null)
+			{
+				captureConnection.VideoRotationAngle = options.OverrideRotationAngle.Value;
+			}
+			else if (rotationCoordinator is not null)
 			{
 				captureConnection.VideoRotationAngle = rotationCoordinator.VideoRotationAngleForHorizonLevelCapture;
 			}

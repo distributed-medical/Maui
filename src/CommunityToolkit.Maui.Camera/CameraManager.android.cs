@@ -45,6 +45,7 @@ partial class CameraManager
 	Stream? videoRecordingStream;
 	int extensionMode = ExtensionMode.Auto;
 	CaptureSessionMode currentSessionMode = CaptureSessionMode.Photo;
+
 	bool IsCapturePhotoSession => currentSessionMode is CaptureSessionMode.Photo;
 
 	enum CaptureSessionMode { Photo, Video }
@@ -308,6 +309,9 @@ partial class CameraManager
 
 		var videoCaptureBuilder = new VideoCapture.Builder(videoRecorder);
 
+		var orientation = options.OverrideRotationAngle is int overrideAngle
+			? GetSurfaceRotation(overrideAngle) : videoCapture?.TargetRotation ?? (int)SurfaceOrientation.Rotation0;
+
 		if (options.TargetFrameRate > 0)
 		{
 			var fpsRange = new Android.Util.Range(
@@ -316,7 +320,10 @@ partial class CameraManager
 			videoCaptureBuilder.SetTargetFrameRate(fpsRange);
 		}
 
+		videoCaptureBuilder.SetTargetRotation(orientation);
+
 		videoCapture = (VideoCapture?)videoCaptureBuilder.Build();
+		videoCapture?.TargetRotation = orientation;
 	}
 
 	static QualitySelector CreateQualitySelector(VideoRecordingOptions options)
@@ -568,6 +575,8 @@ partial class CameraManager
 				.Start(executor, captureListener) ?? throw new InvalidOperationException("Unable to prepare recording");
 		}
 
+		cameraView.InvalidateMeasure();
+
 		// `.PrepareRecording()` should never return null
 		// According to the Android docs, `Recorder.prepareRecording(Context, eMediaSoreOutputOptions)` returns a `NonNull` object
 		// `Recorder.PrepareRecording(Context, eMediaSoreOutputOptions)` returning a nullable object in .NET for Android is likely a C# Binding mistake
@@ -605,6 +614,8 @@ partial class CameraManager
 		currentSessionMode = CaptureSessionMode.Photo;
 		RebuildImageCapture();
 		await BindPhotoSessionAsync(token);
+
+		cameraView.InvalidateMeasure();
 
 		return videoRecordingStream ?? Stream.Null;
 	}
@@ -673,7 +684,11 @@ partial class CameraManager
 
 		imageCapture?.TargetRotation = targetRotation;
 		videoCapture?.TargetRotation = targetRotation;
-		cameraPreview?.TargetRotation = targetRotation;
+
+		if (currentSessionMode != CaptureSessionMode.Video) // Only update the preview rotation when not recording video, as the video recording session may have a fixed rotation
+		{
+			cameraPreview?.TargetRotation = targetRotation;
+		}
 	}
 
 	static int GetSurfaceRotation(int orientationDegrees) => orientationDegrees switch
@@ -681,7 +696,7 @@ partial class CameraManager
 		>= 45 and < 135 => (int)SurfaceOrientation.Rotation270,
 		>= 135 and < 225 => (int)SurfaceOrientation.Rotation180,
 		>= 225 and < 315 => (int)SurfaceOrientation.Rotation90,
-		_ => (int)SurfaceOrientation.Rotation0
+		_ => (int)SurfaceOrientation.Rotation90
 	};
 
 	sealed class ImageCallBack(ICameraView cameraView) : ImageCapture.OnImageCapturedCallback

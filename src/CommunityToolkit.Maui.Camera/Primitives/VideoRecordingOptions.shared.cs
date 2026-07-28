@@ -42,4 +42,11 @@ public class VideoRecordingOptions
 	/// Include audio in the recording
 	/// </summary>
 	public bool IncludeAudio { get; set; } = true;
+
+	/// <summary>
+	/// Override rotation angle in output video file. 
+	/// If null, the system will choose rotation angle based on device orientation. 
+	/// If set, the system will ignore device orientation and use the specified rotation angle.
+	/// </summary>
+	public int? OverrideRotationAngle { get; set; }
 }
