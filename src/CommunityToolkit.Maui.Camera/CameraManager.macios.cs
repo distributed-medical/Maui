@@ -29,6 +29,7 @@ partial class CameraManager
 
 	AVCaptureVideoOrientation videoOrientation;
 	AVCaptureMovieFileOutput? videoOutput;
+	AVCaptureMovieFileOutputRecordingDelegate? videoFinalizationDelegate;
 	AVCaptureDeviceRotationCoordinator? rotationCoordinator;
 	string? videoRecordingFileName;
 	bool deleteVideoRecordingFileOnCompletion;
@@ -483,11 +484,12 @@ partial class CameraManager
 
 		videoRecordingFinalizeTcs = new TaskCompletionSource();
 
-		videoRecordingFileName = options.TemporaryFilename ?? Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.mov");
-		deleteVideoRecordingFileOnCompletion = options.TemporaryFilename is null;
+		videoRecordingFileName = options.SaveAsFilename ?? Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.mov");
+		deleteVideoRecordingFileOnCompletion = options.SaveAsFilename is null;
 
 		var outputUrl = NSUrl.FromFilename(videoRecordingFileName);
-		videoOutput.StartRecordingToOutputFile(outputUrl, new AVCaptureMovieFileOutputRecordingDelegate(videoRecordingFinalizeTcs));
+		videoFinalizationDelegate = new AVCaptureMovieFileOutputRecordingDelegate(videoRecordingFinalizeTcs);
+		videoOutput.StartRecordingToOutputFile(outputUrl, videoFinalizationDelegate);
 	}
 
 	private async partial Task<Stream> PlatformStopVideoRecording(CancellationToken token)
@@ -502,6 +504,8 @@ partial class CameraManager
 
 		videoOutput.StopRecording();
 		await videoRecordingFinalizeTcs.Task.WaitAsync(token);
+		videoFinalizationDelegate?.Dispose();
+		videoFinalizationDelegate = null;
 
 		if (videoRecordingStream is not null && File.Exists(videoRecordingFileName))
 		{

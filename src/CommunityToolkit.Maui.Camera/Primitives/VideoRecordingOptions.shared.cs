@@ -16,10 +16,10 @@ public class VideoRecordingOptions
 	public const string HevcVideoCodec = "HEVC";
 
 	/// <summary>
-	/// A specific temporary file to use for the video recording
+	/// A specific file to use for the video recording
 	/// </summary>
 	/// <remarks>If specified, it will NOT be deleted after completed recording</remarks>
-	public string? TemporaryFilename { get; set; }
+	public string? SaveAsFilename { get; set; }
 
 	/// <summary>
 	/// The target frame rate to use for video recordings

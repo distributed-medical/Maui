@@ -543,8 +543,8 @@ partial class CameraManager
 			await BindVideoSessionAsync(token);
 		}
 
-		string temporaryFilename = options.TemporaryFilename ?? Path.Combine(context.CacheDir?.AbsolutePath ?? "", $"{DateTime.UtcNow.Ticks}.mp4");
-		deleteVideoRecordingFileOnCompletion = options.TemporaryFilename is null;
+		string temporaryFilename = options.SaveAsFilename ?? Path.Combine(context.CacheDir?.AbsolutePath ?? "", $"{DateTime.UtcNow.Ticks}.mp4");
+		deleteVideoRecordingFileOnCompletion = options.SaveAsFilename is null;
 		videoRecordingFile = new Java.IO.File(temporaryFilename);
 		videoRecordingFile.CreateNewFile();
 
