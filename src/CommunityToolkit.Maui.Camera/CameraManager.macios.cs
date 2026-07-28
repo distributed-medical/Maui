@@ -27,7 +27,8 @@ partial class CameraManager
 	AVCapturePhotoOutput? photoOutput;
 	PreviewView? previewView;
 
-	AVCaptureVideoOrientation videoOrientation;
+	AVCaptureVideoOrientation videoOrientation;  // iOS <17
+	nfloat videoRotationAngle;                   // iOS 17+
 	AVCaptureMovieFileOutput? videoOutput;
 	AVCaptureMovieFileOutputRecordingDelegate? videoFinalizationDelegate;
 	AVCaptureDeviceRotationCoordinator? rotationCoordinator;
@@ -88,8 +89,9 @@ partial class CameraManager
 		{
 			motionManager ??= new();
 			motionManager.StartAccelerometerUpdates();
+			// ObserveOrientationDidChange is only needed on iOS <17; on iOS 17+ the rotationCoordinator handles this
+			orientationDidChangeObserver = UIDevice.Notifications.ObserveOrientationDidChange((_, _) => UpdateVideoOrientation());
 		}
-		orientationDidChangeObserver = UIDevice.Notifications.ObserveOrientationDidChange((_, _) => UpdateVideoOrientation());
 		UpdateVideoOrientation();
 
 		return previewView;
@@ -192,16 +194,21 @@ partial class CameraManager
 
 		var sz = ((CMVideoFormatDescription)captureDevice.ActiveFormat.FormatDescription).Dimensions;
 
-		switch (videoOrientation)
+		bool isLandscape;
+		if (UIDevice.CurrentDevice.CheckSystemVersion(17, 0))
 		{
-			case AVCaptureVideoOrientation.LandscapeLeft:
-			case AVCaptureVideoOrientation.LandscapeRight:
-				return new Size(sz.Width, sz.Height);
-
-			default:
-				return new Size(sz.Height, sz.Width);
-
+			// 90° and 270° angles correspond to landscape orientations
+			isLandscape = videoRotationAngle == 90 || videoRotationAngle == 270;
 		}
+		else
+		{
+			isLandscape = videoOrientation is AVCaptureVideoOrientation.LandscapeLeft
+										   or AVCaptureVideoOrientation.LandscapeRight;
+		}
+
+		return isLandscape
+			? new Size(sz.Width, sz.Height)
+			: new Size(sz.Height, sz.Width);
 	}
 
 	private async partial Task PlatformConnectCamera(CancellationToken token)
@@ -785,8 +792,18 @@ partial class CameraManager
 
 	void UpdateVideoOrientation()
 	{
-		videoOrientation = GetVideoOrientation();
-		previewView?.UpdatePreviewVideoOrientation(videoOrientation);
+		if (UIDevice.CurrentDevice.CheckSystemVersion(17, 0) && rotationCoordinator is not null)
+		{
+			// PreviewLayerVideoRotationAngleForHorizonLevelPreview is not yet bound in this SDK version;
+			// VideoRotationAngleForHorizonLevelCapture produces the same angle for the preview layer.
+			videoRotationAngle = rotationCoordinator.VideoRotationAngleForHorizonLevelCapture;
+			previewView?.UpdatePreviewVideoOrientation(videoRotationAngle);
+		}
+		else
+		{
+			videoOrientation = GetVideoOrientation();
+			previewView?.UpdatePreviewVideoOrientation(videoOrientation);
+		}
 	}
 
 	IEnumerable<AVCaptureDeviceFormat> GetPhotoCompatibleFormats(IEnumerable<AVCaptureDeviceFormat> formats)
@@ -849,6 +866,11 @@ partial class CameraManager
 
 		AVCaptureVideoPreviewLayer PreviewLayer => (AVCaptureVideoPreviewLayer)Layer;
 
+		// Tracks the last applied rotation so LayoutSubviews can re-apply it without a coordinator reference.
+		bool hasRotationAngle;
+		nfloat lastRotationAngle;
+		AVCaptureVideoOrientation lastVideoOrientation;
+
 		[Export("layerClass")]
 		public static Class GetLayerClass()
 		{
@@ -858,10 +880,43 @@ partial class CameraManager
 		public override void LayoutSubviews()
 		{
 			base.LayoutSubviews();
-			UpdatePreviewVideoOrientation(GetVideoOrientation());
+			if (hasRotationAngle)
+			{
+				ApplyRotationAngle(lastRotationAngle);
+			}
+			else
+			{
+				ApplyVideoOrientation(lastVideoOrientation != default ? lastVideoOrientation : GetVideoOrientation());
+			}
 		}
 
+		/// <summary>iOS 17+ path — uses <see cref="AVCaptureConnection.VideoRotationAngle"/>.</summary>
+		public void UpdatePreviewVideoOrientation(nfloat angle)
+		{
+			Debug.WriteLine($">> UpdatePreviewVideoOrientation(angle={angle})");
+			hasRotationAngle = true;
+			lastRotationAngle = angle;
+			ApplyRotationAngle(angle);
+		}
+
+		/// <summary>iOS &lt;17 path — uses the deprecated <see cref="AVCaptureConnection.VideoOrientation"/>.</summary>
 		public void UpdatePreviewVideoOrientation(AVCaptureVideoOrientation videoOrientation)
+		{
+			Debug.WriteLine($">> UpdatePreviewVideoOrientation({videoOrientation})");
+			hasRotationAngle = false;
+			lastVideoOrientation = videoOrientation;
+			ApplyVideoOrientation(videoOrientation);
+		}
+
+		void ApplyRotationAngle(nfloat angle)
+		{
+			if (PreviewLayer.Connection is not null)
+			{
+				PreviewLayer.Connection.VideoRotationAngle = angle;
+			}
+		}
+
+		void ApplyVideoOrientation(AVCaptureVideoOrientation videoOrientation)
 		{
 			if (PreviewLayer.Connection is not null)
 			{
