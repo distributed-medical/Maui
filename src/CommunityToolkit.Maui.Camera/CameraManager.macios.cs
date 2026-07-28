@@ -463,6 +463,10 @@ partial class CameraManager
 
 		captureSession.CommitConfiguration();
 
+		// Changing the session preset resets VideoZoomFactor on the capture device to 1.0.
+		// Re-apply the current zoom level so it is preserved when recording starts.
+		UpdateZoom(cameraView.ZoomFactor);
+
 		if (!TryConfigureAVCaptureConnection(videoOutput, out var error))
 		{
 			Trace.TraceWarning(error);
@@ -566,6 +570,10 @@ partial class CameraManager
 			}
 
 			captureSession.CommitConfiguration();
+
+			// Changing the session preset resets VideoZoomFactor on the capture device to 1.0.
+			// Re-apply the current zoom level so it is preserved when recording starts.
+			UpdateZoom(cameraView.ZoomFactor);
 		}
 
 		videoOutput = null;
