@@ -45,6 +45,8 @@ partial class CameraManager
 	Stream? videoRecordingStream;
 	int extensionMode = ExtensionMode.Auto;
 	CaptureSessionMode currentSessionMode = CaptureSessionMode.Photo;
+	int jpegQuality = 98;
+	int currentOrientation;
 
 	bool IsCapturePhotoSession => currentSessionMode is CaptureSessionMode.Photo;
 
@@ -276,7 +278,7 @@ partial class CameraManager
 		imageCapture = new ImageCapture.Builder()
 			.SetCaptureMode(imageCaptureMode)
 			.SetResolutionSelector(resolutionSelector)
-			.SetJpegQuality((int)Math.Clamp(JpegQuality * 100f, 1, 100))
+			.SetJpegQuality((int)Math.Clamp(jpegQuality, 1, 100))
 			.Build();
 	}
 
@@ -309,8 +311,7 @@ partial class CameraManager
 
 		var videoCaptureBuilder = new VideoCapture.Builder(videoRecorder);
 
-		var orientation = options.OverrideRotationAngle is int overrideAngle
-			? GetSurfaceRotation(overrideAngle) : videoCapture?.TargetRotation ?? (int)SurfaceOrientation.Rotation0;
+		var orientation = options.OverrideRotationAngle.HasValue ? GetSurfaceRotation(options.OverrideRotationAngle.Value) : currentOrientation;
 
 		if (options.TargetFrameRate > 0)
 		{
@@ -508,12 +509,21 @@ partial class CameraManager
 		camera.CameraControl?.StartFocusAndMetering(action);
 	}
 
-	private partial ValueTask PlatformTakePicture(CancellationToken token)
+	private partial ValueTask PlatformTakePicture(ImageCaptureOptions options, CancellationToken token)
 	{
 		ArgumentNullException.ThrowIfNull(cameraExecutor);
 		ArgumentNullException.ThrowIfNull(imageCallback);
+		ArgumentNullException.ThrowIfNull(imageCapture);
 
+		if (jpegQuality != options.JpegQuality)
+		{
+			jpegQuality = options.JpegQuality;
+			RebuildImageCapture();
+		}
+
+		imageCapture.TargetRotation = options.OverrideRotationAngle != null ? GetSurfaceRotation(options.OverrideRotationAngle.Value) : currentOrientation;
 		imageCapture?.TakePicture(cameraExecutor, imageCallback);
+
 		return ValueTask.CompletedTask;
 	}
 
@@ -681,9 +691,7 @@ partial class CameraManager
 	void OnOrientationChanged(int orientationDegrees)
 	{
 		var targetRotation = GetSurfaceRotation(orientationDegrees);
-
-		imageCapture?.TargetRotation = targetRotation;
-		videoCapture?.TargetRotation = targetRotation;
+		currentOrientation = targetRotation;
 
 		if (currentSessionMode != CaptureSessionMode.Video) // Only update the preview rotation when not recording video, as the video recording session may have a fixed rotation
 		{

@@ -248,8 +248,14 @@ public partial class CameraView : View, ICameraView, IDisposable
 		Handler.CameraManager.SetRegionOfInterest(regionOfInterest);
 	}
 
-	/// <inheritdoc cref="ICameraView.CaptureImage"/>
+	/// <inheritdoc cref="CommunityToolkit.Maui.Core.ICameraView.CaptureImage(System.Threading.CancellationToken)"/>
 	public async Task<Stream> CaptureImage(CancellationToken token)
+	{
+		return await CaptureImage(new ImageCaptureOptions(), token);
+	}
+
+	/// <inheritdoc cref="CommunityToolkit.Maui.Core.ICameraView.CaptureImage(CommunityToolkit.Maui.Primitives.ImageCaptureOptions,System.Threading.CancellationToken)"/>
+	public async Task<Stream> CaptureImage(ImageCaptureOptions options, CancellationToken token)
 	{
 		// Use SemaphoreSlim to ensure `MediaCaptured` and `MediaCaptureFailed` events are unsubscribed before calling `TakePicture` again
 		// Without this SemaphoreSlim, previous calls to this method will fire `MediaCaptured` and/or `MediaCaptureFailed` events causing this method to return the wrong Stream or throw the wrong Exception
@@ -262,7 +268,7 @@ public partial class CameraView : View, ICameraView, IDisposable
 
 		try
 		{
-			await Handler.CameraManager.TakePicture(token);
+			await Handler.CameraManager.TakePicture(options, token);
 
 			var stream = await mediaStreamTCS.Task.WaitAsync(token);
 			return stream;

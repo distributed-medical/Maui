@@ -26,11 +26,6 @@ sealed partial class CameraManager(
 	bool isInitialized;
 
 	/// <summary>
-	/// The Jpeg quality to use when capturing an image from the current camera. The value should be between 0 and 1, where 1 is the highest quality.
-	/// </summary>
-	public float JpegQuality { get; set; } = 0.98f;
-
-	/// <summary>
 	/// Connects to the camera.
 	/// </summary>
 	/// <returns>A <see cref="ValueTask"/> that can be awaited.</returns>
@@ -52,8 +47,10 @@ sealed partial class CameraManager(
 	/// <summary>
 	/// Takes a picture using the camera.
 	/// </summary>
+	/// <param name="options">Additional options</param>
+	/// <param name="token"></param>
 	/// <returns>A <see cref="ValueTask"/> that can be awaited.</returns>
-	public ValueTask TakePicture(CancellationToken token) => PlatformTakePicture(token);
+	public ValueTask TakePicture(ImageCaptureOptions options, CancellationToken token) => PlatformTakePicture(options, token);
 
 	/// <summary>
 	/// Starts the camera preview.
@@ -162,9 +159,10 @@ sealed partial class CameraManager(
 	/// <summary>
 	/// Performs the capturing of a picture at the platform-specific level.
 	/// </summary>
+	/// <param name="options">Additional options</param>
 	/// <param name="token">A <see cref="CancellationToken"/> that can be used to cancel the work.</param>
 	/// <returns>A <see cref="ValueTask"/> that can be awaited.</returns>
-	private partial ValueTask PlatformTakePicture(CancellationToken token);
+	private partial ValueTask PlatformTakePicture(ImageCaptureOptions options, CancellationToken token);
 
 	/// <summary>
 	/// Starts the preview from the camera, at the platform-specific level.

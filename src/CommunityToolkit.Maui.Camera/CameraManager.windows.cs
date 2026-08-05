@@ -104,7 +104,7 @@ partial class CameraManager
 
 	private partial void PlatformSetRegionOfInterest(Rect? regionOfInterest) => throw new NotSupportedException();
 
-	private async partial ValueTask PlatformTakePicture(CancellationToken token)
+	private async partial ValueTask PlatformTakePicture(ImageCaptureOptions options, CancellationToken token)
 	{
 		if (mediaCapture is null)
 		{

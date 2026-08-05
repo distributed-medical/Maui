@@ -61,6 +61,17 @@ public interface ICameraView : IView
 	Task<Stream> CaptureImage(CancellationToken token);
 
 	/// <summary>
+	/// Triggers the camera to capture an image.
+	/// </summary>
+	/// <param name="options">Additional options</param>
+	/// <param name="token"></param>
+	/// <remarks>
+	/// To customize the behavior of the camera when capturing an image, consider overriding the behavior through
+	/// <c>CameraViewHandler.CommandMapper.ReplaceMapping(nameof(ICameraView.CaptureImage), ADD YOUR METHOD);</c>.
+	/// </remarks>
+	Task<Stream> CaptureImage(ImageCaptureOptions options, CancellationToken token);
+
+	/// <summary>
 	/// Starts the camera preview.
 	/// </summary>
 	/// <remarks>

@@ -33,5 +33,5 @@ sealed partial class CameraManager
 
 	private partial void PlatformSetRegionOfInterest(Rect? regionOfInterest) => throw new NotSupportedException(notSupportedMessage);
 
-	private partial ValueTask PlatformTakePicture(CancellationToken token) => throw new NotSupportedException(notSupportedMessage);
+	private partial ValueTask PlatformTakePicture(ImageCaptureOptions options, CancellationToken token) => throw new NotSupportedException(notSupportedMessage);
 }
