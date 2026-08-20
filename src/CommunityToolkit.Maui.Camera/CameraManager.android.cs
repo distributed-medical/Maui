@@ -509,7 +509,7 @@ partial class CameraManager
 		camera.CameraControl?.StartFocusAndMetering(action);
 	}
 
-	private partial ValueTask PlatformTakePicture(ImageCaptureOptions options, CancellationToken token)
+	private async partial ValueTask PlatformTakePicture(ImageCaptureOptions options, CancellationToken token)
 	{
 		ArgumentNullException.ThrowIfNull(cameraExecutor);
 		ArgumentNullException.ThrowIfNull(imageCallback);
@@ -519,12 +519,11 @@ partial class CameraManager
 		{
 			jpegQuality = options.JpegQuality;
 			RebuildImageCapture();
+			await BindPhotoSessionAsync(token);
 		}
 
 		imageCapture.TargetRotation = options.OverrideRotationAngle != null ? GetSurfaceRotation(options.OverrideRotationAngle.Value) : currentOrientation;
 		imageCapture?.TakePicture(cameraExecutor, imageCallback);
-
-		return ValueTask.CompletedTask;
 	}
 
 	private async partial Task PlatformStartVideoRecording(Stream stream, CancellationToken token)
