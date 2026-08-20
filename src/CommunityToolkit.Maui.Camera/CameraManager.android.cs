@@ -311,7 +311,7 @@ partial class CameraManager
 
 		var videoCaptureBuilder = new VideoCapture.Builder(videoRecorder);
 
-		var orientation = options.OverrideRotationAngle.HasValue ? GetSurfaceRotation(options.OverrideRotationAngle.Value) : currentOrientation;
+		var orientation = options.OverrideRotationAngle.HasValue ? GetImageRotation(options.OverrideRotationAngle.Value) : currentOrientation;
 
 		if (options.TargetFrameRate > 0)
 		{
@@ -522,7 +522,7 @@ partial class CameraManager
 			await BindPhotoSessionAsync(token);
 		}
 
-		imageCapture.TargetRotation = options.OverrideRotationAngle != null ? GetSurfaceRotation(options.OverrideRotationAngle.Value) : currentOrientation;
+		imageCapture.TargetRotation = options.OverrideRotationAngle != null ? GetImageRotation(options.OverrideRotationAngle.Value) : currentOrientation;
 		imageCapture?.TakePicture(cameraExecutor, imageCallback);
 	}
 
@@ -703,6 +703,14 @@ partial class CameraManager
 		>= 45 and < 135 => (int)SurfaceOrientation.Rotation270,
 		>= 135 and < 225 => (int)SurfaceOrientation.Rotation180,
 		>= 225 and < 315 => (int)SurfaceOrientation.Rotation90,
+		_ => (int)SurfaceOrientation.Rotation0
+	};
+
+	static int GetImageRotation(int orientationDegrees) => orientationDegrees switch
+	{
+		>= 45 and < 135 => (int)SurfaceOrientation.Rotation0,
+		>= 135 and < 225 => (int)SurfaceOrientation.Rotation270,
+		>= 225 and < 315 => (int)SurfaceOrientation.Rotation180,
 		_ => (int)SurfaceOrientation.Rotation90
 	};
 
