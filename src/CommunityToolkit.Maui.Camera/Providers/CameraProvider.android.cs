@@ -3,6 +3,7 @@ using Android.Content;
 using Android.Graphics;
 using Android.Hardware.Camera2;
 using Android.Hardware.Camera2.Params;
+using Android.Runtime;
 using AndroidX.Camera.Camera2.InterOp;
 using AndroidX.Camera.Core;
 using AndroidX.Camera.Lifecycle;
@@ -75,12 +76,18 @@ partial class CameraProvider
 					}
 				}
 
+				var zoomState = cameraXInfo.ZoomState.Value as IZoomState;
+				if (zoomState is null && cameraXInfo.ZoomState.Value is Java.Lang.Object javaObject)
+				{
+					zoomState = javaObject.JavaCast<IZoomState>();
+				}
+
 				var cameraInfo = new CameraInfo(name,
 					camera2Info.CameraId ?? throw new InvalidOperationException("Unable to retrieve Camera ID"),
 					position,
 					cameraXInfo.HasFlashUnit,
-					(cameraXInfo.ZoomState?.Value as IZoomState)?.MinZoomRatio ?? 1.0f,
-					(cameraXInfo.ZoomState?.Value as IZoomState)?.MaxZoomRatio ?? 1.0f,
+					zoomState?.MinZoomRatio ?? 1f,
+					zoomState?.MaxZoomRatio ?? 1f,
 					1.0f,
 					supportedResolutions,
 					false,
