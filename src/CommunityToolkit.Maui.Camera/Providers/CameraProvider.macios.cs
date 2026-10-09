@@ -57,6 +57,11 @@ partial class CameraProvider
 
 		foreach (var device in discoverySession.Devices)
 		{
+			if (!device.Connected)
+			{
+				continue;
+			}
+
 			var position = device.Position switch
 			{
 				AVCaptureDevicePosition.Front => CameraPosition.Front,
@@ -84,6 +89,11 @@ partial class CameraProvider
 
 				supportedFormats.Add(format);
 				supportedResolutions.Add(new(dimension.Width, dimension.Height));
+			}
+
+			if (supportedFormats.Count is 0)
+			{
+				continue;
 			}
 
 			float zoomMultiplier = 1.0f;
