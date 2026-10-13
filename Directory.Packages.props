@@ -4,6 +4,7 @@
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     
     <!-- Keep in sync with the main project's Microsoft.Maui.Controls version in Directory.Packages.props -->
-    <MauiPackageVersion>10.0.90</MauiPackageVersion>
+    <MauiPackageVersion>10.0.110</MauiPackageVersion>
   </PropertyGroup>
+  
 </Project>
