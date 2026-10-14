@@ -255,8 +255,8 @@ partial class CameraManager
 			processCameraProvider?.Unbind(cameraPreview);
 			cameraPreview.Dispose();
 		}
-		cameraPreview = new Preview.Builder().SetResolutionSelector(resolutionSelector).Build();
-		cameraPreview.SetSurfaceProvider(cameraExecutor, previewView?.SurfaceProvider);
+		cameraPreview = new Preview.Builder().SetResolutionSelector(resolutionSelector)?.Build();
+		cameraPreview?.SetSurfaceProvider(cameraExecutor, previewView?.SurfaceProvider);
 	}
 
 	void RebuildImageCapture()
@@ -275,10 +275,10 @@ partial class CameraManager
 			imageCapture.Dispose();
 		}
 
-		imageCapture = new ImageCapture.Builder()
-			.SetCaptureMode(imageCaptureMode)
-			.SetResolutionSelector(resolutionSelector)
-			.SetJpegQuality((int)Math.Clamp(jpegQuality, 1, 100))
+		imageCapture = new ImageCapture.Builder()!
+			.SetCaptureMode(imageCaptureMode)!
+			.SetResolutionSelector(resolutionSelector)!
+			.SetJpegQuality((int)Math.Clamp(jpegQuality, 1, 100))!
 			.Build();
 	}
 
@@ -294,7 +294,8 @@ partial class CameraManager
 		videoRecorder?.Dispose();
 
 		var videoRecorderBuilder = new Recorder.Builder()
-			.SetExecutor(cameraExecutor);
+			.SetExecutor(cameraExecutor)
+			?? throw new InvalidOperationException("Failed to create Recorder.Builder");
 
 		videoRecorderBuilder.SetQualitySelector(CreateQualitySelector(options));
 
@@ -359,7 +360,8 @@ partial class CameraManager
 		{
 			acceptableResolutions.Add(Quality.Sd!);
 		}
-		return QualitySelector.FromOrderedList(acceptableResolutions);
+		return QualitySelector.FromOrderedList(acceptableResolutions)
+			?? throw new InvalidOperationException("Failed to create QualitySelector");
 	}
 
 	/// Maps a <see cref="VideoRecordingOptions.VideoCodec"/> string to the corresponding
@@ -456,7 +458,8 @@ partial class CameraManager
 			await BindPhotoSessionAsync(token);
 		}
 
-		var point = previewView.MeteringPointFactory.CreatePoint(previewView.Width / 2.0f, previewView.Height / 2.0f, 0.1f);
+		var point = previewView.MeteringPointFactory?.CreatePoint(previewView.Width / 2.0f, previewView.Height / 2.0f, 0.1f)
+			?? throw new InvalidOperationException("Failed to create MeteringPoint");
 		var action = new FocusMeteringAction.Builder(point).Build();
 		camera?.CameraControl?.StartFocusAndMetering(action);
 
@@ -501,10 +504,10 @@ partial class CameraManager
 			? Math.Clamp((float)(regionOfInterest.Value.Width * density / previewView.Width), 0.01f, 1f)
 			: 0.1f;
 
-		var factory = previewView.MeteringPointFactory;
+		var factory = previewView.MeteringPointFactory ?? throw new InvalidOperationException("MeteringPointFactory is null"); 
 		var point = factory.CreatePoint(centerX, centerY, meteringSize);
 		var action = new FocusMeteringAction.Builder(point)
-			.SetAutoCancelDuration(5, TimeUnit.Seconds!)
+			.SetAutoCancelDuration(5, TimeUnit.Seconds!)!
 			.Build();
 		camera.CameraControl?.StartFocusAndMetering(action);
 	}
@@ -580,7 +583,7 @@ partial class CameraManager
 		else
 		{
 			videoRecording = videoRecorder
-				.PrepareRecording(context, outputOptions)
+				.PrepareRecording(context, outputOptions)!
 				.Start(executor, captureListener) ?? throw new InvalidOperationException("Unable to prepare recording");
 		}
 
@@ -716,7 +719,7 @@ partial class CameraManager
 
 	sealed class ImageCallBack(ICameraView cameraView) : ImageCapture.OnImageCapturedCallback
 	{
-		public override void OnCaptureSuccess(IImageProxy image)
+		public override void OnCaptureSuccess(IImageProxy? image)
 		{
 			base.OnCaptureSuccess(image);
 			var img = image?.Image;
@@ -764,7 +767,7 @@ partial class CameraManager
 			}
 		}
 
-		public override void OnError(ImageCaptureException exception)
+		public override void OnError(ImageCaptureException? exception)
 		{
 			base.OnError(exception);
 			cameraView.OnMediaCapturedFailed(exception?.Message ?? "An unknown error occurred.");

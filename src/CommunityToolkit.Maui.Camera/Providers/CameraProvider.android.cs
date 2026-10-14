@@ -40,7 +40,7 @@ partial class CameraProvider
 					continue;
 				}
 
-				var (name, position) = cameraXInfo.LensFacing switch
+				var (name, position) = cameraXInfo!.LensFacing switch
 				{
 					CameraSelector.LensFacingBack => ("Back Camera", CameraPosition.Rear),
 					CameraSelector.LensFacingFront => ("Front Camera", CameraPosition.Front),
@@ -76,8 +76,8 @@ partial class CameraProvider
 					}
 				}
 
-				var zoomState = cameraXInfo.ZoomState.Value as IZoomState;
-				if (zoomState is null && cameraXInfo.ZoomState.Value is Java.Lang.Object javaObject)
+				var zoomState = cameraXInfo.ZoomState?.Value as IZoomState;
+				if (zoomState is null && cameraXInfo.ZoomState?.Value is Java.Lang.Object javaObject)
 				{
 					zoomState = javaObject.JavaCast<IZoomState>();
 				}
@@ -85,7 +85,7 @@ partial class CameraProvider
 				var cameraInfo = new CameraInfo(name,
 					camera2Info.CameraId ?? throw new InvalidOperationException("Unable to retrieve Camera ID"),
 					position,
-					cameraXInfo.HasFlashUnit,
+					cameraXInfo.HasFlashUnit == true,
 					zoomState?.MinZoomRatio ?? 1f,
 					zoomState?.MaxZoomRatio ?? 1f,
 					1.0f,
