@@ -43,33 +43,47 @@ partial class CameraManager
 	{
 		CleanupVideoRecordingResources();
 
+		// 1. Stop anything that can call back into the preview layer first.
+		orientationDidChangeObserver?.Dispose();
+		orientationDidChangeObserver = null;
+
+		motionManager?.StopAccelerometerUpdates();
+		motionManager?.Dispose();
+		motionManager = null;
+
+		// 2. AVCaptureDeviceRotationCoordinator holds an unretained reference to previewView.Layer and
+		//    observes it. It MUST be released before the preview layer is torn down, otherwise QuartzCore
+		//    dereferences a dead layer and the process dies with SIGSEGV.
+		rotationCoordinator?.Dispose();
+		rotationCoordinator = null;
+
+		// 3. Tear down the session before detaching it from the layer.
 		captureSession?.StopRunning();
+
+		// 4. Detach the session from the preview layer, but do NOT Dispose() the view.
+		//    DisconnectHandler runs while the view is still in the UIKit hierarchy; disposing it releases
+		//    the UIView/CALayer out from under UIKit. Dropping the managed reference is enough, UIKit
+		//    releases the native view when it is removed from its superview.
+		if (previewView is not null)
+		{
+			previewView.Session = null;
+			previewView = null;
+		}
+
 		captureSession?.Dispose();
 		captureSession = null;
 
 		captureInput?.Dispose();
 		captureInput = null;
 
+		// captureDevice is a shared, system-owned AVCaptureDevice. Never dispose it, only drop the reference.
 		captureDevice = null;
-
-		orientationDidChangeObserver?.Dispose();
-		orientationDidChangeObserver = null;
 
 		photoOutput?.Dispose();
 		photoOutput = null;
 
-		previewView?.Dispose();
-		previewView = null;
-
 		videoRecordingStream?.Dispose();
 		videoRecordingStream = null;
-
-		rotationCoordinator?.Dispose();
-		rotationCoordinator = null;
-
-		motionManager?.StopAccelerometerUpdates();
-		motionManager?.Dispose();
-		motionManager = null;
 	}
 
 	public NativePlatformCameraPreviewView CreatePlatformView()
@@ -187,12 +201,11 @@ partial class CameraManager
 
 	public partial Size? GetPreviewSize()
 	{
-		if (captureDevice is null)
+		var sz = ((CMVideoFormatDescription?)captureDevice?.ActiveFormat?.FormatDescription)?.Dimensions;
+		if (sz is null)
 		{
 			return null;
 		}
-
-		var sz = ((CMVideoFormatDescription)captureDevice.ActiveFormat.FormatDescription).Dimensions;
 
 		bool isLandscape;
 		if (UIDevice.CurrentDevice.CheckSystemVersion(17, 0))
@@ -207,8 +220,8 @@ partial class CameraManager
 		}
 
 		return isLandscape
-			? new Size(sz.Width, sz.Height)
-			: new Size(sz.Height, sz.Width);
+			? new Size(sz.Value.Width, sz.Value.Height)
+			: new Size(sz.Value.Height, sz.Value.Width);
 	}
 
 	private async partial Task PlatformConnectCamera(CancellationToken token)
@@ -232,6 +245,20 @@ partial class CameraManager
 		}
 
 		cameraView.SelectedCamera ??= cameraProvider.AvailableCameras?.FirstOrDefault() ?? throw new CameraException("No camera available on device");
+
+		// AVCaptureDevice wrappers are shared process-wide. If another component (e.g. a barcode
+		// scanning library) disposed the wrapper, the cached CameraInfo holds a dead handle and every
+		// subsequent access throws ObjectDisposedException. Detect that and rebuild the camera list.
+		if (cameraView.SelectedCamera.CaptureDevice?.Handle == IntPtr.Zero)
+		{
+			Trace.WriteLine("CameraManager: cached AVCaptureDevice was disposed externally, refreshing available cameras.");
+			captureSession.CommitConfiguration();
+
+			await cameraProvider.RefreshAvailableCameras(token);
+			cameraView.SelectedCamera = cameraProvider.AvailableCameras?.FirstOrDefault() ?? throw new CameraException("No camera available on device");
+
+			captureSession.BeginConfiguration();
+		}
 
 		captureDevice = cameraView.SelectedCamera.CaptureDevice ?? throw new CameraException($"No Camera found");
 		captureInput = new AVCaptureDeviceInput(captureDevice, out NSError? error);
