@@ -6,6 +6,7 @@ using CommunityToolkit.Maui.Primitives;
 using CoreMedia;
 using CoreMotion;
 using Foundation;
+using Microsoft.Extensions.Logging;
 using ObjCRuntime;
 using UIKit;
 
@@ -93,7 +94,7 @@ partial class CameraManager
 			SessionPreset = AVCaptureSession.PresetPhoto
 		};
 
-		previewView = new PreviewView
+		previewView = new PreviewView(logger)
 		{
 			Session = captureSession
 		};
@@ -132,7 +133,7 @@ partial class CameraManager
 			captureDevice.LockForConfiguration(out NSError? error);
 			if (error is not null)
 			{
-				Trace.WriteLine(error);
+				logger.LogWarning("Unable to lock camera device to update torch mode: {Error}", error.LocalizedDescription);
 				return;
 			}
 
@@ -156,7 +157,7 @@ partial class CameraManager
 		captureDevice.LockForConfiguration(out NSError? error);
 		if (error is not null)
 		{
-			Trace.WriteLine(error);
+			logger.LogWarning("Unable to lock camera device to update zoom: {Error}", error.LocalizedDescription);
 			return;
 		}
 
@@ -174,7 +175,7 @@ partial class CameraManager
 		captureDevice.LockForConfiguration(out NSError? error);
 		if (error is not null)
 		{
-			Trace.WriteLine(error);
+			logger.LogWarning("Unable to lock camera device to update capture resolution: {Error}", error.LocalizedDescription);
 			return ValueTask.CompletedTask;
 		}
 
@@ -251,7 +252,7 @@ partial class CameraManager
 		// subsequent access throws ObjectDisposedException. Detect that and rebuild the camera list.
 		if (cameraView.SelectedCamera.CaptureDevice?.Handle == IntPtr.Zero)
 		{
-			Trace.WriteLine("CameraManager: cached AVCaptureDevice was disposed externally, refreshing available cameras.");
+			logger.LogDebug("Cached AVCaptureDevice was disposed externally, refreshing available cameras.");
 			captureSession.CommitConfiguration();
 
 			await cameraProvider.RefreshAvailableCameras(token);
@@ -329,7 +330,7 @@ partial class CameraManager
 		captureDevice.LockForConfiguration(out NSError? error);
 		if (error is not null)
 		{
-			Trace.WriteLine(error);
+			logger.LogWarning("Unable to lock camera device to set region of interest: {Error}", error.LocalizedDescription);
 			return;
 		}
 
@@ -350,7 +351,7 @@ partial class CameraManager
 			? AVCaptureExposureMode.ContinuousAutoExposure
 			: AVCaptureExposureMode.AutoExpose;
 
-		Debug.WriteLine($"Poi: {pt}, {focusMode}, {exposureMode}");
+		logger.LogDebug("POI: {Point}, focus mode: {FocusMode}, exposure mode: {ExposureMode}", pt, focusMode, exposureMode);
 
 		if (captureDevice.FocusPointOfInterestSupported)
 		{
@@ -496,12 +497,12 @@ partial class CameraManager
 
 		if (!TryConfigureAVCaptureConnection(videoOutput, options.OverrideRotationAngle, out var error))
 		{
-			Trace.TraceWarning(error);
+			logger.LogWarning("{Error}", error);
 		}
 
 		if (options.VideoCodec is not null)
 		{
-			ApplyVideoCodec(videoOutput, options.VideoCodec);
+			ApplyVideoCodec(videoOutput, options.VideoCodec, logger);
 		}
 
 		if (options.TargetFrameRate > 0 && captureDevice is not null)
@@ -516,7 +517,7 @@ partial class CameraManager
 			}
 			else
 			{
-				Trace.TraceWarning($"Unable to set video frame rate: {frameRateError.LocalizedDescription}");
+				logger.LogWarning("Unable to set video frame rate: {Error}", frameRateError.LocalizedDescription);
 			}
 		}
 
@@ -636,14 +637,29 @@ partial class CameraManager
 
 		if (!TryConfigureAVCaptureConnection(photoOutput, options.OverrideRotationAngle, out var errorMessage))
 		{
-			Trace.TraceWarning(errorMessage);
+			logger.LogWarning("{Error}", errorMessage);
 		}
 
-		var wrapper = new AVCapturePhotoCaptureDelegateWrapper();
+		var wrapper = new AVCapturePhotoCaptureDelegateWrapper(logger);
+
+		var startTimestamp = Stopwatch.GetTimestamp();
+		logger.LogDebug("CapturePhoto requested (session running: {IsSessionRunning}, flash mode: {FlashMode})", captureSession?.Running, capturePhotoSettings.FlashMode);
 
 		photoOutput.CapturePhoto(capturePhotoSettings, wrapper);
 
-		var result = await wrapper.Task.WaitAsync(token);
+		CapturePhotoResult result;
+		try
+		{
+			result = await wrapper.Task.WaitAsync(token);
+		}
+		catch (OperationCanceledException)
+		{
+			logger.LogWarning("CapturePhoto was cancelled/timed out after {ElapsedMilliseconds:0} ms (session running: {IsSessionRunning})", Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds, captureSession?.Running);
+			throw;
+		}
+
+		logger.LogDebug("CapturePhoto delivered a result after {ElapsedMilliseconds:0} ms", Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
+
 		if (result.Error is not null)
 		{
 			var failureReason = result.Error.LocalizedDescription;
@@ -653,6 +669,12 @@ partial class CameraManager
 			}
 
 			cameraView.OnMediaCapturedFailed(failureReason);
+			return;
+		}
+
+		if (result.Photo is null)
+		{
+			cameraView.OnMediaCapturedFailed("The photo capture completed without delivering any photo data.");
 			return;
 		}
 
@@ -751,7 +773,7 @@ partial class CameraManager
 
 	/// Maps a <see cref="VideoRecordingOptions.VideoCodec"/> string to an <see cref="AVVideoCodecType"/>
 	/// and applies it to the given <paramref name="output"/> via <c>SetOutputSettings</c>.
-	static void ApplyVideoCodec(AVCaptureMovieFileOutput output, string videoCodec)
+	static void ApplyVideoCodec(AVCaptureMovieFileOutput output, string videoCodec, ILogger logger)
 	{
 		var codecType = videoCodec switch
 		{
@@ -762,7 +784,7 @@ partial class CameraManager
 
 		if (codecType is null)
 		{
-			Trace.TraceWarning($"Unknown video codec '{videoCodec}'; the system default will be used.");
+			logger.LogWarning("Unknown video codec '{VideoCodec}'; the system default will be used.", videoCodec);
 			return;
 		}
 
@@ -869,13 +891,39 @@ partial class CameraManager
 
 	sealed class AVCapturePhotoCaptureDelegateWrapper : AVCapturePhotoCaptureDelegate
 	{
-		readonly TaskCompletionSource<CapturePhotoResult> taskCompletionSource = new();
+		readonly ILogger logger;
+		readonly TaskCompletionSource<CapturePhotoResult> taskCompletionSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		readonly long startTimestamp = Stopwatch.GetTimestamp();
+
+		public AVCapturePhotoCaptureDelegateWrapper(ILogger logger)
+		{
+			this.logger = logger;
+		}
 
 		public Task<CapturePhotoResult> Task =>
 			taskCompletionSource.Task;
 
+		double ElapsedMilliseconds => Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+
+		public override void WillBeginCapture(AVCapturePhotoOutput captureOutput, AVCaptureResolvedPhotoSettings resolvedSettings)
+		{
+			logger.LogDebug("WillBeginCapture after {ElapsedMilliseconds:0} ms", ElapsedMilliseconds);
+		}
+
+		public override void WillCapturePhoto(AVCapturePhotoOutput captureOutput, AVCaptureResolvedPhotoSettings resolvedSettings)
+		{
+			logger.LogDebug("WillCapturePhoto after {ElapsedMilliseconds:0} ms", ElapsedMilliseconds);
+		}
+
+		public override void DidCapturePhoto(AVCapturePhotoOutput captureOutput, AVCaptureResolvedPhotoSettings resolvedSettings)
+		{
+			logger.LogDebug("DidCapturePhoto after {ElapsedMilliseconds:0} ms", ElapsedMilliseconds);
+		}
+
 		public override void DidFinishProcessingPhoto(AVCapturePhotoOutput output, AVCapturePhoto photo, NSError? error)
 		{
+			logger.LogDebug("DidFinishProcessingPhoto after {ElapsedMilliseconds:0} ms (error: {Error})", ElapsedMilliseconds, error?.LocalizedDescription ?? "none");
+
 			taskCompletionSource.TrySetResult(new()
 			{
 				Output = output,
@@ -883,21 +931,48 @@ partial class CameraManager
 				Error = error
 			});
 		}
+
+		public override void DidFinishCapture(AVCapturePhotoOutput captureOutput, AVCaptureResolvedPhotoSettings resolvedSettings, NSError? error)
+		{
+			// This callback always terminates a capture request. If the capture was aborted (for instance because the
+			// capture session was interrupted or reconfigured), DidFinishProcessingPhoto is never invoked, so we must
+			// complete the Task here as well. Otherwise the caller would wait until its own timeout expires.
+			var completed = taskCompletionSource.TrySetResult(new()
+			{
+				Output = captureOutput,
+				Photo = null,
+				Error = error ?? new NSError(new NSString("CommunityToolkit.Maui.Camera"), 0, new NSDictionary<NSString, NSObject>(
+					[new NSString("NSLocalizedDescription")],
+					[new NSString("The photo capture finished without delivering any photo data.")]))
+			});
+
+			if (completed)
+			{
+				logger.LogWarning("DidFinishCapture completed without a photo after {ElapsedMilliseconds:0} ms (error: {Error})", ElapsedMilliseconds, error?.LocalizedDescription ?? "none");
+			}
+			else
+			{
+				logger.LogDebug("DidFinishCapture after {ElapsedMilliseconds:0} ms", ElapsedMilliseconds);
+			}
+		}
 	}
 
 	sealed record CapturePhotoResult
 	{
 		public required AVCapturePhotoOutput Output { get; init; }
 
-		public required AVCapturePhoto Photo { get; init; }
+		public required AVCapturePhoto? Photo { get; init; }
 
 		public NSError? Error { get; init; }
 	}
 
 	sealed class PreviewView : NativePlatformCameraPreviewView
 	{
-		public PreviewView()
+		readonly ILogger logger;
+
+		public PreviewView(ILogger logger)
 		{
+			this.logger = logger;
 			PreviewLayer.VideoGravity = AVLayerVideoGravity.ResizeAspectFill;
 		}
 
@@ -936,7 +1011,7 @@ partial class CameraManager
 		/// <summary>iOS 17+ path — uses <see cref="AVCaptureConnection.VideoRotationAngle"/>.</summary>
 		public void UpdatePreviewVideoOrientation(nfloat angle)
 		{
-			Debug.WriteLine($">> UpdatePreviewVideoOrientation(angle={angle})");
+			logger.LogDebug("UpdatePreviewVideoOrientation(angle={Angle})", angle);
 			hasRotationAngle = true;
 			lastRotationAngle = angle;
 			ApplyRotationAngle(angle);
@@ -945,7 +1020,7 @@ partial class CameraManager
 		/// <summary>iOS &lt;17 path — uses the deprecated <see cref="AVCaptureConnection.VideoOrientation"/>.</summary>
 		public void UpdatePreviewVideoOrientation(AVCaptureVideoOrientation videoOrientation)
 		{
-			Debug.WriteLine($">> UpdatePreviewVideoOrientation({videoOrientation})");
+			logger.LogDebug("UpdatePreviewVideoOrientation({VideoOrientation})", videoOrientation);
 			hasRotationAngle = false;
 			lastVideoOrientation = videoOrientation;
 			ApplyVideoOrientation(videoOrientation);

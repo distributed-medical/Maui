@@ -4,6 +4,8 @@ using System.Windows.Input;
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Core.Handlers;
 using CommunityToolkit.Maui.Primitives;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CommunityToolkit.Maui.Views;
 
@@ -257,9 +259,20 @@ public partial class CameraView : View, ICameraView, IDisposable
 	/// <inheritdoc cref="CommunityToolkit.Maui.Core.ICameraView.CaptureImage(CommunityToolkit.Maui.Primitives.ImageCaptureOptions,System.Threading.CancellationToken)"/>
 	public async Task<Stream> CaptureImage(ImageCaptureOptions options, CancellationToken token)
 	{
+		var handler = Handler ?? throw new CameraException("Unable to retrieve CameraView handler");
+		var logger = (handler.MauiContext?.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory)?.CreateLogger<CameraView>()
+			?? NullLogger<CameraView>.Instance;
+
 		// Use SemaphoreSlim to ensure `MediaCaptured` and `MediaCaptureFailed` events are unsubscribed before calling `TakePicture` again
 		// Without this SemaphoreSlim, previous calls to this method will fire `MediaCaptured` and/or `MediaCaptureFailed` events causing this method to return the wrong Stream or throw the wrong Exception
+		var startTimestamp = Stopwatch.GetTimestamp();
 		await captureImageSemaphoreSlim.WaitAsync(token);
+
+		var semaphoreWaitMilliseconds = Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+		if (semaphoreWaitMilliseconds > 100)
+		{
+			logger.LogWarning("Waited {WaitMilliseconds:0} ms for a previous CaptureImage to complete", semaphoreWaitMilliseconds);
+		}
 
 		var mediaStreamTCS = new TaskCompletionSource<Stream>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -268,10 +281,19 @@ public partial class CameraView : View, ICameraView, IDisposable
 
 		try
 		{
-			await Handler.CameraManager.TakePicture(options, token);
+			await handler.CameraManager.TakePicture(options, token);
 
 			var stream = await mediaStreamTCS.Task.WaitAsync(token);
+			logger.LogDebug("CaptureImage completed in {ElapsedMilliseconds:0} ms", Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
 			return stream;
+		}
+		catch (OperationCanceledException)
+		{
+			logger.LogWarning("CaptureImage was cancelled after {ElapsedMilliseconds:0} ms (semaphore wait: {SemaphoreWaitMilliseconds:0} ms, media stream received: {MediaStreamReceived})",
+				Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds,
+				semaphoreWaitMilliseconds,
+				mediaStreamTCS.Task.IsCompleted);
+			throw;
 		}
 		finally
 		{
@@ -282,9 +304,10 @@ public partial class CameraView : View, ICameraView, IDisposable
 			captureImageSemaphoreSlim.Release();
 		}
 
-		void HandleMediaCaptured(object? sender, MediaCapturedEventArgs e) => mediaStreamTCS.SetResult(e.Media);
+		// Use the Try* overloads since a late callback from a previously cancelled capture may still raise these events
+		void HandleMediaCaptured(object? sender, MediaCapturedEventArgs e) => mediaStreamTCS.TrySetResult(e.Media);
 
-		void HandleMediaCapturedFailed(object? sender, MediaCaptureFailedEventArgs e) => mediaStreamTCS.SetException(new CameraException(e.FailureReason));
+		void HandleMediaCapturedFailed(object? sender, MediaCaptureFailedEventArgs e) => mediaStreamTCS.TrySetException(new CameraException(e.FailureReason));
 	}
 
 	/// <inheritdoc cref="ICameraView.StartCameraPreview"/>

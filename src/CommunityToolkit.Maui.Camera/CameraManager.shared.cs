@@ -1,5 +1,7 @@
 ﻿using System.Runtime.Versioning;
 using CommunityToolkit.Maui.Primitives;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CommunityToolkit.Maui.Core;
 
@@ -22,6 +24,9 @@ sealed partial class CameraManager(
 	Action onLoaded) : IDisposable
 {
 	readonly Action onLoaded = onLoaded;
+	readonly ILogger logger =
+		(mauiContext.Services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory)?.CreateLogger<CameraManager>()
+		?? NullLogger<CameraManager>.Instance;
 
 	bool isInitialized;
 
