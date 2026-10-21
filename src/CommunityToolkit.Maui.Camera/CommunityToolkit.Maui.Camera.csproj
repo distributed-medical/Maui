@@ -60,6 +60,8 @@
     <PackageReference Include="Xamarin.AndroidX.Camera.Extensions" />
 
     <PackageReference Include="Xamarin.AndroidX.Activity.Ktx" />
+    <PackageReference Include="Xamarin.AndroidX.Fragment.Ktx" />
+    <PackageReference Include="Xamarin.AndroidX.Collection.Ktx" />
     
     <!--  Ensure Linker does not remove required libraries -->
     <None Include="linker.xml" Pack="true" PackagePath="build\$(PackageId).LinkerConfigurationFile.xml" />
